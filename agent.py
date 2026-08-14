@@ -1,17 +1,17 @@
 import json
 import os
-from typing import Any
-
 import requests
 
 from tools import TOOL_FUNCTIONS
 
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
+# ============================================================
+# GEMINI CONFIGURATION
+# ============================================================
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY"
+)
 
 GEMINI_MODEL = os.getenv(
     "GEMINI_MODEL",
@@ -19,40 +19,53 @@ GEMINI_MODEL = os.getenv(
 )
 
 
-# ==========================================
-# TOOL DEFINITIONS
-# ==========================================
+# ============================================================
+# TOOL DECLARATIONS
+# ============================================================
 
 TOOL_DECLARATIONS = [
+
+    # --------------------------------------------------------
+    # FLIGHT TOOL
+    # --------------------------------------------------------
 
     {
         "name": "search_flights",
 
         "description": """
-        Search the web for flight options between the origin
-        and destination. Return approximate flight prices and
-        useful flight information.
+        Search the web for flight options between
+        the origin and destination.
+
+        Find approximate prices, airlines,
+        travel duration and useful flight information.
+
+        Prices should be presented in USD when possible.
         """,
 
         "parameters": {
+
             "type": "object",
 
             "properties": {
 
                 "origin": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Starting city"
                 },
 
                 "destination": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Destination city"
                 },
 
                 "duration": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Trip duration"
                 },
 
                 "budget": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Budget in USD"
                 }
             },
 
@@ -65,15 +78,24 @@ TOOL_DECLARATIONS = [
         }
     },
 
+
+    # --------------------------------------------------------
+    # HOTEL TOOL
+    # --------------------------------------------------------
+
     {
         "name": "search_hotels",
 
         "description": """
-        Search the web for hotels and accommodation options
-        at the destination based on duration and budget.
+        Search the web for hotels and accommodation
+        options at the destination.
+
+        Consider the trip duration and user's
+        USD budget.
         """,
 
         "parameters": {
+
             "type": "object",
 
             "properties": {
@@ -99,15 +121,22 @@ TOOL_DECLARATIONS = [
         }
     },
 
+
+    # --------------------------------------------------------
+    # PLACES TOOL
+    # --------------------------------------------------------
+
     {
         "name": "search_places",
 
         "description": """
-        Search for tourist attractions, restaurants,
-        activities and interesting places at the destination.
+        Search the web for tourist attractions,
+        restaurants, activities and interesting
+        places at the destination.
         """,
 
         "parameters": {
+
             "type": "object",
 
             "properties": {
@@ -133,6 +162,11 @@ TOOL_DECLARATIONS = [
         }
     },
 
+
+    # --------------------------------------------------------
+    # WEATHER TOOL
+    # --------------------------------------------------------
+
     {
         "name": "get_weather",
 
@@ -142,6 +176,7 @@ TOOL_DECLARATIONS = [
         """,
 
         "parameters": {
+
             "type": "object",
 
             "properties": {
@@ -159,9 +194,9 @@ TOOL_DECLARATIONS = [
 ]
 
 
-# ==========================================
-# CALL GEMINI
-# ==========================================
+# ============================================================
+# GEMINI API CALL
+# ============================================================
 
 def call_gemini(contents):
 
@@ -177,7 +212,8 @@ def call_gemini(contents):
 
         "tools": [
             {
-                "function_declarations": TOOL_DECLARATIONS
+                "function_declarations":
+                    TOOL_DECLARATIONS
             }
         ],
 
@@ -185,7 +221,7 @@ def call_gemini(contents):
 
             "temperature": 0.2,
 
-            "maxOutputTokens": 3000
+            "maxOutputTokens": 4000
         }
     }
 
@@ -200,9 +236,9 @@ def call_gemini(contents):
     return response.json()
 
 
-# ==========================================
-# EXTRACT GEMINI RESPONSE
-# ==========================================
+# ============================================================
+# EXTRACT RESPONSE PARTS
+# ============================================================
 
 def extract_parts(response):
 
@@ -214,7 +250,7 @@ def extract_parts(response):
     if not candidates:
 
         raise RuntimeError(
-            "Gemini returned no response"
+            "Gemini returned no candidates."
         )
 
     return candidates[0].get(
@@ -226,64 +262,102 @@ def extract_parts(response):
     )
 
 
-# ==========================================
-# MAIN AGENT
-# ==========================================
+# ============================================================
+# MAIN TRAVEL AGENT
+# ============================================================
 
 def run_travel_agent(user_input):
 
     prompt = f"""
+
 You are an intelligent AI Travel Planning Agent.
 
-The user provided:
+USER REQUEST:
 
-{json.dumps(user_input, indent=2)}
+{json.dumps(
+    user_input,
+    indent=2
+)}
 
-Your objective is to create the best possible travel itinerary.
+============================================================
+YOUR JOB
+============================================================
 
-You have access to these tools:
+Create a complete, useful and budget-friendly
+travel plan for the user.
+
+The user's budget is in USD ($).
+
+============================================================
+AVAILABLE TOOLS
+============================================================
 
 1. Flight Search
 2. Hotel Search
 3. Places Search
 4. Weather Check
 
-You should intelligently decide which tools are required.
+You can decide which tools are required.
 
-For a complete travel plan, normally use:
+For a complete travel request, normally use
+all four tools.
 
-- Flight Search
-- Hotel Search
-- Places Search
-- Weather
+You can call multiple tools.
 
-You may call multiple tools.
-
-You may also call another tool after receiving
+You can also call another tool after receiving
 the result of a previous tool.
 
-Important rules:
+============================================================
+IMPORTANT RULES
+============================================================
 
-- Consider the user's budget.
-- Consider the trip duration.
-- Consider their interests.
-- Do not invent flight availability.
-- Do not invent hotel availability.
-- Clearly mention that web prices are approximate.
-- Use weather information when creating the itinerary.
-- Combine all tool results into one useful plan.
+1. Consider the user's budget.
 
-Final response must contain:
+2. Consider the trip duration.
 
-1. Trip Summary
-2. Flight Suggestions
-3. Hotel Suggestions
-4. Day-by-Day Itinerary
-5. Weather Information
-6. Estimated Budget
-7. Travel Tips
-8. Useful Sources
+3. Consider the user's interests.
+
+4. Do not invent flight availability.
+
+5. Do not invent hotel availability.
+
+6. Web prices are approximate.
+
+7. Use USD ($) when presenting the budget.
+
+8. Use weather information when planning
+   outdoor activities.
+
+9. Avoid exceeding the user's budget.
+
+10. Clearly explain if exact live prices
+    are unavailable.
+
+============================================================
+FINAL RESPONSE
+============================================================
+
+Return the final answer using this structure:
+
+TRIP SUMMARY
+
+FLIGHT OPTIONS
+
+HOTEL OPTIONS
+
+DAY-BY-DAY ITINERARY
+
+WEATHER
+
+ESTIMATED BUDGET
+
+TRAVEL TIPS
+
+USEFUL SOURCES
+
+Make the answer easy to read.
 """
+
 
     contents = [
 
@@ -291,22 +365,34 @@ Final response must contain:
             "role": "user",
 
             "parts": [
+
                 {
                     "text": prompt
                 }
+
             ]
         }
 
     ]
 
+
     tools_used = []
 
-    # Maximum 6 agent/tool rounds
+
+    # ========================================================
+    # AGENT LOOP
+    # ========================================================
+
     for _ in range(6):
 
-        response = call_gemini(contents)
+        response = call_gemini(
+            contents
+        )
 
-        parts = extract_parts(response)
+        parts = extract_parts(
+            response
+        )
+
 
         # Add Gemini response
         contents.append({
@@ -314,39 +400,60 @@ Final response must contain:
             "role": "model",
 
             "parts": parts
+
         })
 
-        # Find tool calls
+
+        # ====================================================
+        # FIND FUNCTION CALLS
+        # ====================================================
+
         function_calls = [
 
-            part.get("functionCall")
+            part.get(
+                "functionCall"
+            )
 
             for part in parts
 
-            if part.get("functionCall")
+            if part.get(
+                "functionCall"
+            )
+
         ]
 
-        # ======================================
+
+        # ====================================================
         # FINAL ANSWER
-        # ======================================
+        # ====================================================
 
         if not function_calls:
 
             final_text = "\n".join(
 
-                part.get("text", "")
+                part.get(
+                    "text",
+                    ""
+                )
 
                 for part in parts
 
-                if part.get("text")
-            )
+                if part.get(
+                    "text"
+                )
+
+            ).strip()
+
 
             return {
 
-                "status": "success",
+                "status":
+                    "success",
 
                 "destination":
-                    user_input["destination"],
+                    user_input[
+                        "destination"
+                    ],
 
                 "tools_used":
                     tools_used,
@@ -358,11 +465,13 @@ Final response must contain:
                     GEMINI_MODEL
             }
 
-        # ======================================
+
+        # ====================================================
         # EXECUTE TOOLS
-        # ======================================
+        # ====================================================
 
         tool_results = []
+
 
         for function_call in function_calls:
 
@@ -375,35 +484,44 @@ Final response must contain:
                 {}
             )
 
-            # Check tool exists
+
+            # Check tool
             if tool_name not in TOOL_FUNCTIONS:
 
                 result = {
+
                     "error":
-                    f"Unknown tool: {tool_name}"
+                        f"Unknown tool: {tool_name}"
                 }
 
             else:
 
                 try:
 
-                    # Execute selected tool
+                    # Execute tool
                     result = TOOL_FUNCTIONS[
                         tool_name
-                    ](**arguments)
+                    ](
+                        **arguments
+                    )
 
                 except Exception as error:
 
                     result = {
-                        "error": str(error)
+
+                        "error":
+                            str(error)
                     }
 
-            # Store trace
+
+            # Store tool information
             tools_used.append({
 
-                "tool": tool_name,
+                "tool":
+                    tool_name,
 
-                "arguments": arguments,
+                "arguments":
+                    arguments,
 
                 "status":
                     "completed"
@@ -411,28 +529,40 @@ Final response must contain:
                     else "failed"
             })
 
-            # Send result back to Gemini
+
+            # Return result to Gemini
             tool_results.append({
 
                 "functionResponse": {
 
-                    "name": tool_name,
+                    "name":
+                        tool_name,
 
-                    "response": result
+                    "response":
+                        result
                 }
+
             })
 
-        # ======================================
+
+        # ====================================================
         # SEND TOOL RESULTS BACK TO GEMINI
-        # ======================================
+        # ====================================================
 
         contents.append({
 
             "role": "user",
 
-            "parts": tool_results
+            "parts":
+                tool_results
+
         })
 
+
+    # ========================================================
+    # MAX TOOL CALL ERROR
+    # ========================================================
+
     raise RuntimeError(
-        "Agent exceeded maximum tool calls."
+        "Agent exceeded maximum tool-call rounds."
     )
