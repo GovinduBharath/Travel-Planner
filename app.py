@@ -12,11 +12,14 @@ load_dotenv()
 
 app = FastAPI(
     title="AI Travel Planner Agent",
-    description="Agentic AI Travel Planner using Gemini and multiple tools",
+    description="AI-powered travel planning agent using Gemini and multiple tools",
     version="1.0.0"
 )
 
-# Allow frontend requests
+# ============================================================
+# CORS
+# ============================================================
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,51 +29,57 @@ app.add_middleware(
 )
 
 
-# ==========================================
+# ============================================================
 # USER INPUT MODEL
-# ==========================================
+# ============================================================
 
 class TravelRequest(BaseModel):
 
     origin: str = Field(
-        default="Hyderabad",
+        ...,
+        min_length=2,
         description="Starting city"
     )
 
     destination: str = Field(
         ...,
-        description="Travel destination"
+        min_length=2,
+        description="Destination city or country"
     )
 
     budget: str = Field(
         ...,
-        description="Travel budget"
+        min_length=1,
+        description="Travel budget in USD"
     )
 
     duration: str = Field(
         ...,
+        min_length=1,
         description="Trip duration"
     )
 
     interests: str = Field(
-        default="food, sightseeing, culture",
+        default="sightseeing, food, culture",
         description="Travel interests"
     )
 
 
-# ==========================================
+# ============================================================
 # HOME PAGE
-# ==========================================
+# ============================================================
 
 @app.get("/")
 def home():
 
-    return FileResponse("static/index.html")
+    return FileResponse(
+        "static/index.html"
+    )
 
 
-# ==========================================
+# ============================================================
 # HEALTH CHECK
-# ==========================================
+# ============================================================
 
 @app.get("/health")
 def health():
@@ -81,21 +90,26 @@ def health():
     }
 
 
-# ==========================================
-# TRAVEL PLANNER API
-# ==========================================
+# ============================================================
+# CREATE TRAVEL PLAN
+# ============================================================
 
 @app.post("/api/plan")
-def create_travel_plan(request: TravelRequest):
+def create_travel_plan(
+    request: TravelRequest
+):
 
-    # Check API keys
+    # Check Gemini API key
     if not os.getenv("GEMINI_API_KEY"):
+
         raise HTTPException(
             status_code=500,
             detail="GEMINI_API_KEY is missing"
         )
 
+    # Check Tavily API key
     if not os.getenv("TAVILY_API_KEY"):
+
         raise HTTPException(
             status_code=500,
             detail="TAVILY_API_KEY is missing"
@@ -103,11 +117,13 @@ def create_travel_plan(request: TravelRequest):
 
     try:
 
-        # Convert request to dictionary
+        # Convert request into dictionary
         user_input = request.model_dump()
 
-        # Send request to Agent Core
-        result = run_travel_agent(user_input)
+        # Send data to Agent Core
+        result = run_travel_agent(
+            user_input
+        )
 
         return result
 
@@ -115,13 +131,13 @@ def create_travel_plan(request: TravelRequest):
 
         raise HTTPException(
             status_code=500,
-            detail=str(error)
+            detail=f"Agent error: {str(error)}"
         )
 
 
-# ==========================================
-# LOCAL DEVELOPMENT
-# ==========================================
+# ============================================================
+# RUN LOCALLY
+# ============================================================
 
 if __name__ == "__main__":
 
@@ -130,6 +146,11 @@ if __name__ == "__main__":
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=int(os.getenv("PORT", 8000)),
+        port=int(
+            os.getenv(
+                "PORT",
+                8000
+            )
+        ),
         reload=True
     )
