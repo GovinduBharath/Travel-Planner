@@ -20,23 +20,12 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 
 # ============================================================
-# CHECK API KEYS
-# ============================================================
-
-if not GEMINI_API_KEY:
-    print("WARNING: GOOGLE_API_KEY is missing")
-
-if not TAVILY_API_KEY:
-    print("WARNING: TAVILY_API_KEY is missing")
-
-
-# ============================================================
 # FASTAPI APP
 # ============================================================
 
 app = FastAPI(
     title="AI Travel Planner",
-    description="Gemini + Tavily AI Travel Planning Agent",
+    description="AI Travel Planner powered by Google Gemini and Tavily",
     version="1.0.0"
 )
 
@@ -61,15 +50,12 @@ class ChatRequest(BaseModel):
 
 
 # ============================================================
-# HOME PAGE
+# HOME
 # ============================================================
 
 @app.get("/")
 async def home():
-
-    return FileResponse(
-        "static/index.html"
-    )
+    return FileResponse("static/index.html")
 
 
 # ============================================================
@@ -81,25 +67,19 @@ async def health():
 
     return {
         "status": "online",
-        "gemini_key": bool(GEMINI_API_KEY),
+        "google_key": bool(GOOGLE_API_KEY),
         "tavily_key": bool(TAVILY_API_KEY)
     }
 
 
 # ============================================================
-# CHAT ENDPOINT
+# CHAT
 # ============================================================
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
 
     try:
-
-        if not GOOGLE_API_KEY:
-            return {
-                "success": False,
-                "response": "Gemini API key is missing. Add GOOGLE_API_KEY to your environment variables."
-            }
 
         response = travel_agent(
             request.message
