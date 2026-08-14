@@ -1,17 +1,17 @@
 import os
-from typing import Any
-
 import requests
+
 from tavily import TavilyClient
 
 
-# ==========================================
+# ============================================================
 # TAVILY CONFIGURATION
-# ==========================================
+# ============================================================
 
 TAVILY_API_KEY = os.getenv(
     "TAVILY_API_KEY"
 )
+
 
 if TAVILY_API_KEY:
 
@@ -24,29 +24,30 @@ else:
     tavily = None
 
 
-# ==========================================
+# ============================================================
 # CHECK TAVILY
-# ==========================================
+# ============================================================
 
 def check_tavily():
 
     if tavily is None:
 
         raise RuntimeError(
-            "TAVILY_API_KEY is missing"
+            "TAVILY_API_KEY is missing."
         )
 
 
-# ==========================================
+# ============================================================
 # CLEAN SEARCH RESULTS
-# ==========================================
+# ============================================================
 
 def clean_results(
-    response: dict,
-    limit: int = 5
+    response,
+    limit=5
 ):
 
     results = []
+
 
     for item in response.get(
         "results",
@@ -56,55 +57,80 @@ def clean_results(
         results.append({
 
             "title":
-                item.get("title"),
+                item.get(
+                    "title"
+                ),
 
             "url":
-                item.get("url"),
+                item.get(
+                    "url"
+                ),
 
             "content":
                 item.get(
                     "content",
                     ""
-                )[:1200],
+                )[:1500],
 
             "score":
-                item.get("score")
+                item.get(
+                    "score"
+                )
         })
+
 
     return results
 
 
-# ==========================================
-# FLIGHT SEARCH TOOL
-# ==========================================
+# ============================================================
+# FLIGHT SEARCH
+# ============================================================
 
 def search_flights(
-    origin: str,
-    destination: str,
-    duration: str,
-    budget: str
+    origin,
+    destination,
+    duration,
+    budget
 ):
 
     check_tavily()
 
+
     query = f"""
-    Flights from {origin} to {destination}
-    for a {duration} trip.
-    Find flight options, approximate fares,
-    airlines and travel information.
-    Budget: {budget}
-    """
+
+Find flight options from
+{origin} to {destination}.
+
+Trip duration:
+{duration}
+
+Travel budget:
+{budget} USD
+
+Find:
+
+- Airlines
+- Approximate flight prices
+- Flight duration
+- Direct flights if available
+- Useful travel information
+
+Use USD prices when possible.
+
+"""
+
 
     response = tavily.search(
 
         query=query,
 
-        search_depth="basic",
+        search_depth="advanced",
 
         max_results=5,
 
         include_answer=True
     )
+
 
     return {
 
@@ -112,46 +138,69 @@ def search_flights(
             "Flight Search",
 
         "note":
-            "Prices are approximate and may change.",
+            "Flight prices and availability are approximate.",
 
         "answer":
-            response.get("answer"),
+            response.get(
+                "answer"
+            ),
 
         "results":
-            clean_results(response)
+            clean_results(
+                response
+            )
     }
 
 
-# ==========================================
-# HOTEL SEARCH TOOL
-# ==========================================
+# ============================================================
+# HOTEL SEARCH
+# ============================================================
 
 def search_hotels(
-    destination: str,
-    duration: str,
-    budget: str
+    destination,
+    duration,
+    budget
 ):
 
     check_tavily()
 
+
     query = f"""
-    Best hotels in {destination}
-    for {duration}.
-    Find accommodation options,
-    approximate prices, ratings and reviews.
-    Budget: {budget}
-    """
+
+Find hotels and accommodation
+in {destination}.
+
+Trip duration:
+{duration}
+
+Travel budget:
+{budget} USD
+
+Find:
+
+- Budget hotels
+- Hotel prices
+- Ratings
+- Reviews
+- Location
+- Important facilities
+
+Use USD prices when possible.
+
+"""
+
 
     response = tavily.search(
 
         query=query,
 
-        search_depth="basic",
+        search_depth="advanced",
 
         max_results=5,
 
         include_answer=True
     )
+
 
     return {
 
@@ -162,45 +211,67 @@ def search_hotels(
             "Hotel prices and availability can change.",
 
         "answer":
-            response.get("answer"),
+            response.get(
+                "answer"
+            ),
 
         "results":
-            clean_results(response)
+            clean_results(
+                response
+            )
     }
 
 
-# ==========================================
-# PLACES SEARCH TOOL
-# ==========================================
+# ============================================================
+# PLACES SEARCH
+# ============================================================
 
 def search_places(
-    destination: str,
-    duration: str,
-    interests: str
+    destination,
+    duration,
+    interests
 ):
 
     check_tavily()
 
-    query = f"""
-    Best things to do in {destination}
-    for {duration}.
-    Find tourist attractions, restaurants,
-    activities and places to visit.
 
-    User interests:
-    {interests}
-    """
+    query = f"""
+
+Find the best places to visit
+in {destination}.
+
+Trip duration:
+{duration}
+
+User interests:
+{interests}
+
+Find:
+
+- Tourist attractions
+- Restaurants
+- Activities
+- Local experiences
+- Popular places
+- Hidden gems
+
+Create suggestions suitable
+for the trip duration.
+
+"""
+
 
     response = tavily.search(
 
         query=query,
 
-        search_depth="basic",
+        search_depth="advanced",
 
         max_results=7,
 
         include_answer=True
     )
+
 
     return {
 
@@ -208,7 +279,9 @@ def search_places(
             "Places Search",
 
         "answer":
-            response.get("answer"),
+            response.get(
+                "answer"
+            ),
 
         "results":
             clean_results(
@@ -218,21 +291,22 @@ def search_places(
     }
 
 
-# ==========================================
-# WEATHER TOOL
-# ==========================================
+# ============================================================
+# WEATHER
+# ============================================================
 
 def get_weather(
-    destination: str
+    destination
 ):
 
-    # --------------------------------------
-    # Find destination coordinates
-    # --------------------------------------
+    # --------------------------------------------------------
+    # GEOCODING
+    # --------------------------------------------------------
 
     geocoding_url = (
         "https://geocoding-api.open-meteo.com/v1/search"
     )
+
 
     geo_response = requests.get(
 
@@ -256,35 +330,48 @@ def get_weather(
         timeout=20
     )
 
+
     geo_response.raise_for_status()
 
+
     geo_data = geo_response.json()
+
 
     locations = geo_data.get(
         "results",
         []
     )
 
+
     if not locations:
 
         raise RuntimeError(
-            f"Could not find location: {destination}"
+
+            f"Could not find destination: "
+            f"{destination}"
         )
+
 
     location = locations[0]
 
-    latitude = location["latitude"]
 
-    longitude = location["longitude"]
+    latitude = location[
+        "latitude"
+    ]
+
+    longitude = location[
+        "longitude"
+    ]
 
 
-    # --------------------------------------
-    # Get Weather
-    # --------------------------------------
+    # --------------------------------------------------------
+    # WEATHER API
+    # --------------------------------------------------------
 
     weather_url = (
         "https://api.open-meteo.com/v1/forecast"
     )
+
 
     weather_response = requests.get(
 
@@ -320,9 +407,14 @@ def get_weather(
         timeout=20
     )
 
+
     weather_response.raise_for_status()
 
-    weather_data = weather_response.json()
+
+    weather_data = (
+        weather_response.json()
+    )
+
 
     return {
 
@@ -332,10 +424,14 @@ def get_weather(
         "location": {
 
             "name":
-                location.get("name"),
+                location.get(
+                    "name"
+                ),
 
             "country":
-                location.get("country"),
+                location.get(
+                    "country"
+                ),
 
             "latitude":
                 latitude,
@@ -358,9 +454,9 @@ def get_weather(
     }
 
 
-# ==========================================
+# ============================================================
 # TOOL REGISTRY
-# ==========================================
+# ============================================================
 
 TOOL_FUNCTIONS = {
 
