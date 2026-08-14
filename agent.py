@@ -1,264 +1,174 @@
-import json
 import os
-import requests
 
-from tools import TOOL_FUNCTIONS
+from dotenv import load_dotenv
+from google import genai
+
+from tools import web_search
 
 
 # ============================================================
-# GEMINI CONFIGURATION
+# LOAD ENVIRONMENT VARIABLES
 # ============================================================
 
-GEMINI_API_KEY = os.getenv(
-    "GEMINI_API_KEY"
+load_dotenv()
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+
+# ============================================================
+# CHECK GOOGLE API KEY
+# ============================================================
+
+if not GOOGLE_API_KEY:
+
+    raise ValueError(
+        "GOOGLE_API_KEY is missing. "
+        "Add GOOGLE_API_KEY to your .env file or Render environment variables."
+    )
+
+
+# ============================================================
+# GOOGLE GEMINI CLIENT
+# ============================================================
+
+client = genai.Client(
+    api_key=GOOGLE_API_KEY
 )
 
-GEMINI_MODEL = os.getenv(
-    "GEMINI_MODEL",
-    "gemini-3.6-flash"
-)
+
+# ============================================================
+# GEMINI MODEL
+# ============================================================
+
+MODEL_NAME = "gemini-3.6-flash"
 
 
 # ============================================================
-# TOOL DECLARATIONS
+# TRAVEL AGENT INSTRUCTIONS
 # ============================================================
 
-TOOL_DECLARATIONS = [
+SYSTEM_PROMPT = """
+You are an intelligent AI Travel Planner.
 
-    # --------------------------------------------------------
-    # FLIGHT TOOL
-    # --------------------------------------------------------
+Your job is to help users create personalized travel plans.
 
-    {
-        "name": "search_flights",
+You can help with:
 
-        "description": """
-        Search the web for flight options between
-        the origin and destination.
+- Destinations
+- Itineraries
+- Tourist attractions
+- Hotels
+- Restaurants
+- Local food
+- Transportation
+- Travel budgets
+- Activities
+- Best time to visit
+- Family trips
+- Solo trips
+- Couple trips
+- Weekend trips
+- International trips
+- Local trips
 
-        Find approximate prices, airlines,
-        travel duration and useful flight information.
+IMPORTANT RULES:
 
-        Prices should be presented in USD when possible.
-        """,
+1. Understand the user's destination.
+2. Consider the number of days.
+3. Consider the user's budget.
+4. Consider the number of travelers.
+5. Consider the user's interests.
+6. Use USD ($) for estimated costs.
+7. Give practical recommendations.
+8. Keep answers clear and easy to understand.
+9. Do not invent current prices.
+10. Do not invent current opening hours.
+11. Use web search information when current information is required.
 
-        "parameters": {
+When creating an itinerary, use this structure:
 
-            "type": "object",
+DESTINATION:
+TRIP DURATION:
+TRAVELERS:
+ESTIMATED BUDGET:
 
-            "properties": {
+DAY 1:
+Morning:
+Afternoon:
+Evening:
 
-                "origin": {
-                    "type": "string",
-                    "description": "Starting city"
-                },
+DAY 2:
+Morning:
+Afternoon:
+Evening:
 
-                "destination": {
-                    "type": "string",
-                    "description": "Destination city"
-                },
+Continue for all requested days.
 
-                "duration": {
-                    "type": "string",
-                    "description": "Trip duration"
-                },
+Then provide:
 
-                "budget": {
-                    "type": "string",
-                    "description": "Budget in USD"
-                }
-            },
+HOTELS / AREAS TO STAY:
+FOOD:
+TRANSPORTATION:
+ESTIMATED COST:
+TRAVEL TIPS:
 
-            "required": [
-                "origin",
-                "destination",
-                "duration",
-                "budget"
-            ]
-        }
-    },
+If the user asks for current information such as:
 
+- Current hotel prices
+- Current restaurant information
+- Current attractions
+- Current events
+- Current travel restrictions
+- Current transportation
+- Current ticket prices
+- Current opening hours
 
-    # --------------------------------------------------------
-    # HOTEL TOOL
-    # --------------------------------------------------------
-
-    {
-        "name": "search_hotels",
-
-        "description": """
-        Search the web for hotels and accommodation
-        options at the destination.
-
-        Consider the trip duration and user's
-        USD budget.
-        """,
-
-        "parameters": {
-
-            "type": "object",
-
-            "properties": {
-
-                "destination": {
-                    "type": "string"
-                },
-
-                "duration": {
-                    "type": "string"
-                },
-
-                "budget": {
-                    "type": "string"
-                }
-            },
-
-            "required": [
-                "destination",
-                "duration",
-                "budget"
-            ]
-        }
-    },
-
-
-    # --------------------------------------------------------
-    # PLACES TOOL
-    # --------------------------------------------------------
-
-    {
-        "name": "search_places",
-
-        "description": """
-        Search the web for tourist attractions,
-        restaurants, activities and interesting
-        places at the destination.
-        """,
-
-        "parameters": {
-
-            "type": "object",
-
-            "properties": {
-
-                "destination": {
-                    "type": "string"
-                },
-
-                "duration": {
-                    "type": "string"
-                },
-
-                "interests": {
-                    "type": "string"
-                }
-            },
-
-            "required": [
-                "destination",
-                "duration",
-                "interests"
-            ]
-        }
-    },
-
-
-    # --------------------------------------------------------
-    # WEATHER TOOL
-    # --------------------------------------------------------
-
-    {
-        "name": "get_weather",
-
-        "description": """
-        Get current and forecast weather information
-        for the destination.
-        """,
-
-        "parameters": {
-
-            "type": "object",
-
-            "properties": {
-
-                "destination": {
-                    "type": "string"
-                }
-            },
-
-            "required": [
-                "destination"
-            ]
-        }
-    }
-]
+use the Tavily web search information supplied to you.
+"""
 
 
 # ============================================================
-# GEMINI API CALL
+# CHECK WHETHER WEB SEARCH IS REQUIRED
 # ============================================================
 
-def call_gemini(contents):
+def needs_web_search(message: str):
 
-    url = (
-        "https://generativelanguage.googleapis.com/"
-        f"v1beta/models/{GEMINI_MODEL}:generateContent"
-        f"?key={GEMINI_API_KEY}"
-    )
+    keywords = [
 
-    payload = {
+        "latest",
+        "current",
+        "today",
+        "price",
+        "prices",
+        "hotel",
+        "hotels",
+        "restaurant",
+        "restaurants",
+        "opening hours",
+        "open now",
+        "ticket",
+        "tickets",
+        "flight",
+        "flights",
+        "train",
+        "trains",
+        "bus",
+        "buses",
+        "visa",
+        "weather",
+        "events",
+        "things to do",
+        "best places",
+        "tourist places",
+        "attractions"
 
-        "contents": contents,
+    ]
 
-        "tools": [
-            {
-                "function_declarations":
-                    TOOL_DECLARATIONS
-            }
-        ],
+    message = message.lower()
 
-        "generationConfig": {
-
-            "temperature": 0.2,
-
-            "maxOutputTokens": 4000
-        }
-    }
-
-    response = requests.post(
-        url,
-        json=payload,
-        timeout=90
-    )
-
-    response.raise_for_status()
-
-    return response.json()
-
-
-# ============================================================
-# EXTRACT RESPONSE PARTS
-# ============================================================
-
-def extract_parts(response):
-
-    candidates = response.get(
-        "candidates",
-        []
-    )
-
-    if not candidates:
-
-        raise RuntimeError(
-            "Gemini returned no candidates."
-        )
-
-    return candidates[0].get(
-        "content",
-        {}
-    ).get(
-        "parts",
-        []
+    return any(
+        keyword in message
+        for keyword in keywords
     )
 
 
@@ -266,303 +176,83 @@ def extract_parts(response):
 # MAIN TRAVEL AGENT
 # ============================================================
 
-def run_travel_agent(user_input):
+def travel_agent(user_message: str):
 
-    prompt = f"""
+    web_context = ""
 
-You are an intelligent AI Travel Planning Agent.
 
-USER REQUEST:
+    # ========================================================
+    # TAVILY SEARCH
+    # ========================================================
 
-{json.dumps(
-    user_input,
-    indent=2
-)}
+    if needs_web_search(user_message):
 
-============================================================
-YOUR JOB
-============================================================
+        try:
 
-Create a complete, useful and budget-friendly
-travel plan for the user.
+            search_results = web_search(
+                user_message
+            )
 
-The user's budget is in USD ($).
+            web_context = f"""
+CURRENT WEB SEARCH INFORMATION:
 
-============================================================
-AVAILABLE TOOLS
-============================================================
+{search_results}
 
-1. Flight Search
-2. Hotel Search
-3. Places Search
-4. Weather Check
+Use this information when relevant.
+Do not invent information that conflicts with reliable
+current search results.
+"""
 
-You can decide which tools are required.
+        except Exception as e:
 
-For a complete travel request, normally use
-all four tools.
+            print(
+                "Tavily Search Error:",
+                str(e)
+            )
 
-You can call multiple tools.
+            web_context = """
+Current web search is unavailable.
 
-You can also call another tool after receiving
-the result of a previous tool.
-
-============================================================
-IMPORTANT RULES
-============================================================
-
-1. Consider the user's budget.
-
-2. Consider the trip duration.
-
-3. Consider the user's interests.
-
-4. Do not invent flight availability.
-
-5. Do not invent hotel availability.
-
-6. Web prices are approximate.
-
-7. Use USD ($) when presenting the budget.
-
-8. Use weather information when planning
-   outdoor activities.
-
-9. Avoid exceeding the user's budget.
-
-10. Clearly explain if exact live prices
-    are unavailable.
-
-============================================================
-FINAL RESPONSE
-============================================================
-
-Return the final answer using this structure:
-
-TRIP SUMMARY
-
-FLIGHT OPTIONS
-
-HOTEL OPTIONS
-
-DAY-BY-DAY ITINERARY
-
-WEATHER
-
-ESTIMATED BUDGET
-
-TRAVEL TIPS
-
-USEFUL SOURCES
-
-Make the answer easy to read.
+Use your general knowledge and clearly avoid claiming
+uncertain information as current.
 """
 
 
-    contents = [
+    # ========================================================
+    # CREATE FINAL PROMPT
+    # ========================================================
 
-        {
-            "role": "user",
+    prompt = f"""
+{SYSTEM_PROMPT}
 
-            "parts": [
+{web_context}
 
-                {
-                    "text": prompt
-                }
+USER REQUEST:
 
-            ]
-        }
+{user_message}
 
-    ]
-
-
-    tools_used = []
+Create the best possible travel plan for the user.
+"""
 
 
     # ========================================================
-    # AGENT LOOP
+    # GEMINI
     # ========================================================
 
-    for _ in range(6):
+    response = client.models.generate_content(
 
-        response = call_gemini(
-            contents
-        )
+        model=MODEL_NAME,
 
-        parts = extract_parts(
-            response
-        )
-
-
-        # Add Gemini response
-        contents.append({
-
-            "role": "model",
-
-            "parts": parts
-
-        })
-
-
-        # ====================================================
-        # FIND FUNCTION CALLS
-        # ====================================================
-
-        function_calls = [
-
-            part.get(
-                "functionCall"
-            )
-
-            for part in parts
-
-            if part.get(
-                "functionCall"
-            )
-
-        ]
-
-
-        # ====================================================
-        # FINAL ANSWER
-        # ====================================================
-
-        if not function_calls:
-
-            final_text = "\n".join(
-
-                part.get(
-                    "text",
-                    ""
-                )
-
-                for part in parts
-
-                if part.get(
-                    "text"
-                )
-
-            ).strip()
-
-
-            return {
-
-                "status":
-                    "success",
-
-                "destination":
-                    user_input[
-                        "destination"
-                    ],
-
-                "tools_used":
-                    tools_used,
-
-                "plan":
-                    final_text,
-
-                "model":
-                    GEMINI_MODEL
-            }
-
-
-        # ====================================================
-        # EXECUTE TOOLS
-        # ====================================================
-
-        tool_results = []
-
-
-        for function_call in function_calls:
-
-            tool_name = function_call.get(
-                "name"
-            )
-
-            arguments = function_call.get(
-                "args",
-                {}
-            )
-
-
-            # Check tool
-            if tool_name not in TOOL_FUNCTIONS:
-
-                result = {
-
-                    "error":
-                        f"Unknown tool: {tool_name}"
-                }
-
-            else:
-
-                try:
-
-                    # Execute tool
-                    result = TOOL_FUNCTIONS[
-                        tool_name
-                    ](
-                        **arguments
-                    )
-
-                except Exception as error:
-
-                    result = {
-
-                        "error":
-                            str(error)
-                    }
-
-
-            # Store tool information
-            tools_used.append({
-
-                "tool":
-                    tool_name,
-
-                "arguments":
-                    arguments,
-
-                "status":
-                    "completed"
-                    if "error" not in result
-                    else "failed"
-            })
-
-
-            # Return result to Gemini
-            tool_results.append({
-
-                "functionResponse": {
-
-                    "name":
-                        tool_name,
-
-                    "response":
-                        result
-                }
-
-            })
-
-
-        # ====================================================
-        # SEND TOOL RESULTS BACK TO GEMINI
-        # ====================================================
-
-        contents.append({
-
-            "role": "user",
-
-            "parts":
-                tool_results
-
-        })
-
-
-    # ========================================================
-    # MAX TOOL CALL ERROR
-    # ========================================================
-
-    raise RuntimeError(
-        "Agent exceeded maximum tool-call rounds."
+        contents=prompt
     )
+
+
+    # ========================================================
+    # RETURN RESPONSE
+    # ========================================================
+
+    if not response.text:
+
+        return "Sorry, I could not generate a travel plan."
+
+    return response.text
