@@ -1,4 +1,5 @@
 import os
+import time
 
 from dotenv import load_dotenv
 from google import genai
@@ -16,19 +17,19 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
 # ============================================================
-# CHECK GOOGLE API KEY
+# CHECK API KEY
 # ============================================================
 
 if not GOOGLE_API_KEY:
 
     raise ValueError(
         "GOOGLE_API_KEY is missing. "
-        "Add GOOGLE_API_KEY to your .env file or Render environment variables."
+        "Add GOOGLE_API_KEY to your .env file."
     )
 
 
 # ============================================================
-# GOOGLE GEMINI CLIENT
+# GEMINI CLIENT
 # ============================================================
 
 client = genai.Client(
@@ -37,34 +38,39 @@ client = genai.Client(
 
 
 # ============================================================
-# GEMINI MODEL
+# GEMINI MODELS
 # ============================================================
-MODEL_NAME = "gemini-2.5-flash"
+
+MODELS = [
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite"
+]
 
 
 # ============================================================
-# TRAVEL AGENT INSTRUCTIONS
+# SYSTEM PROMPT
 # ============================================================
 
 SYSTEM_PROMPT = """
 You are an intelligent AI Travel Planner.
 
-Your job is to help users create personalized travel plans.
+Your job is to create personalized and practical travel plans.
 
-You can help with:
+You help users with:
 
-- Destinations
-- Itineraries
+- Destination planning
+- Travel itineraries
 - Tourist attractions
 - Hotels
 - Restaurants
 - Local food
 - Transportation
-- Travel budgets
+- Budget planning
 - Activities
 - Best time to visit
-- Family trips
 - Solo trips
+- Family trips
 - Couple trips
 - Weekend trips
 - International trips
@@ -72,19 +78,18 @@ You can help with:
 
 IMPORTANT RULES:
 
-1. Understand the user's destination.
+1. Understand the destination.
 2. Consider the number of days.
-3. Consider the user's budget.
-4. Consider the number of travelers.
+3. Consider the number of travelers.
+4. Consider the user's budget.
 5. Consider the user's interests.
 6. Use USD ($) for estimated costs.
-7. Give practical recommendations.
-8. Keep answers clear and easy to understand.
-9. Do not invent current prices.
-10. Do not invent current opening hours.
-11. Use web search information when current information is required.
+7. Keep the answer simple and practical.
+8. Do not invent current prices.
+9. Do not invent current opening hours.
+10. Use web information when current information is required.
 
-When creating an itinerary, use this structure:
+For itineraries use:
 
 DESTINATION:
 TRIP DURATION:
@@ -103,31 +108,21 @@ Evening:
 
 Continue for all requested days.
 
-Then provide:
+Then include:
 
-HOTELS / AREAS TO STAY:
+PLACES TO STAY:
 FOOD:
 TRANSPORTATION:
 ESTIMATED COST:
 TRAVEL TIPS:
 
-If the user asks for current information such as:
-
-- Current hotel prices
-- Current restaurant information
-- Current attractions
-- Current events
-- Current travel restrictions
-- Current transportation
-- Current ticket prices
-- Current opening hours
-
-use the Tavily web search information supplied to you.
+If current information is requested, use the Tavily search
+results provided in the prompt.
 """
 
 
 # ============================================================
-# CHECK WHETHER WEB SEARCH IS REQUIRED
+# DETERMINE WHETHER TAVILY IS NEEDED
 # ============================================================
 
 def needs_web_search(message: str):
@@ -159,7 +154,8 @@ def needs_web_search(message: str):
         "things to do",
         "best places",
         "tourist places",
-        "attractions"
+        "attractions",
+        "near me"
 
     ]
 
@@ -168,6 +164,114 @@ def needs_web_search(message: str):
     return any(
         keyword in message
         for keyword in keywords
+    )
+
+
+# ============================================================
+# CALL GEMINI WITH RETRY + FALLBACK
+# ============================================================
+
+def generate_with_fallback(prompt: str):
+
+    last_error = None
+
+
+    for model in MODELS:
+
+        for attempt in range(2):
+
+            try:
+
+                print(
+                    f"Trying Gemini model: {model} "
+                    f"(attempt {attempt + 1})"
+                )
+
+
+                response = client.models.generate_content(
+
+                    model=model,
+
+                    contents=prompt
+                )
+
+
+                if response and response.text:
+
+                    print(
+                        f"Successfully used: {model}"
+                    )
+
+                    return response.text
+
+
+            except Exception as e:
+
+                last_error = e
+
+                error_text = str(e).lower()
+
+                print(
+                    f"{model} failed: {e}"
+                )
+
+
+                # --------------------------------------------
+                # RETRY TEMPORARY SERVER / RATE ERRORS
+                # --------------------------------------------
+
+                if (
+                    "503" in error_text
+                    or "unavailable" in error_text
+                    or "429" in error_text
+                    or "resource exhausted" in error_text
+                ):
+
+                    if attempt == 0:
+
+                        print(
+                            f"Temporary error. "
+                            f"Retrying {model}..."
+                        )
+
+                        time.sleep(2)
+
+                        continue
+
+
+                    # Move to next model
+
+                    break
+
+
+                # --------------------------------------------
+                # MODEL NOT AVAILABLE
+                # --------------------------------------------
+
+                if (
+                    "404" in error_text
+                    or "not found" in error_text
+                    or "no longer available" in error_text
+                ):
+
+                    print(
+                        f"{model} is unavailable. "
+                        f"Trying next model..."
+                    )
+
+                    break
+
+
+                # --------------------------------------------
+                # OTHER ERROR
+                # --------------------------------------------
+
+                raise
+
+
+    raise RuntimeError(
+        "All Gemini models are currently unavailable. "
+        f"Last error: {last_error}"
     )
 
 
@@ -188,37 +292,46 @@ def travel_agent(user_message: str):
 
         try:
 
+            print(
+                "Searching Tavily..."
+            )
+
+
             search_results = web_search(
                 user_message
             )
 
+
             web_context = f"""
-CURRENT WEB SEARCH INFORMATION:
+
+CURRENT WEB INFORMATION:
 
 {search_results}
 
 Use this information when relevant.
-Do not invent information that conflicts with reliable
-current search results.
+Do not invent current information.
 """
+
 
         except Exception as e:
 
             print(
-                "Tavily Search Error:",
+                "Tavily Error:",
                 str(e)
             )
 
-            web_context = """
-Current web search is unavailable.
 
-Use your general knowledge and clearly avoid claiming
-uncertain information as current.
+            web_context = """
+
+Tavily web search was unavailable.
+
+Use general knowledge, but do not claim uncertain
+information is current.
 """
 
 
     # ========================================================
-    # CREATE FINAL PROMPT
+    # FINAL PROMPT
     # ========================================================
 
     prompt = f"""
@@ -230,7 +343,7 @@ USER REQUEST:
 
 {user_message}
 
-Create the best possible travel plan for the user.
+Create the best possible travel plan.
 """
 
 
@@ -238,20 +351,6 @@ Create the best possible travel plan for the user.
     # GEMINI
     # ========================================================
 
-    response = client.models.generate_content(
-
-        model=MODEL_NAME,
-
-        contents=prompt
+    return generate_with_fallback(
+        prompt
     )
-
-
-    # ========================================================
-    # RETURN RESPONSE
-    # ========================================================
-
-    if not response.text:
-
-        return "Sorry, I could not generate a travel plan."
-
-    return response.text
