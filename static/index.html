@@ -12,7 +12,7 @@
     >
 
     <title>
-        AI Travel Planner Agent
+        AI Travel Planner
     </title>
 
 
@@ -56,7 +56,8 @@
 
         .card {
 
-            background: white;
+            background:
+                white;
 
             border-radius:
                 18px;
@@ -66,13 +67,19 @@
 
             box-shadow:
                 0 10px 35px
-                rgba(0, 0, 0, 0.1);
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.10
+                );
         }
 
 
         h1 {
 
-            text-align: center;
+            text-align:
+                center;
 
             margin-bottom:
                 8px;
@@ -81,9 +88,11 @@
 
         .subtitle {
 
-            text-align: center;
+            text-align:
+                center;
 
-            color: #6b7280;
+            color:
+                #6b7280;
 
             margin-bottom:
                 30px;
@@ -92,7 +101,8 @@
 
         .grid {
 
-            display: grid;
+            display:
+                grid;
 
             grid-template-columns:
                 1fr 1fr;
@@ -111,9 +121,11 @@
 
         label {
 
-            display: block;
+            display:
+                block;
 
-            font-weight: bold;
+            font-weight:
+                bold;
 
             margin-bottom:
                 6px;
@@ -122,7 +134,8 @@
 
         input {
 
-            width: 100%;
+            width:
+                100%;
 
             padding:
                 13px;
@@ -140,7 +153,8 @@
 
         input:focus {
 
-            outline: none;
+            outline:
+                none;
 
             border-color:
                 #4f46e5;
@@ -149,7 +163,8 @@
 
         button {
 
-            width: 100%;
+            width:
+                100%;
 
             margin-top:
                 25px;
@@ -157,7 +172,8 @@
             padding:
                 14px;
 
-            border: none;
+            border:
+                none;
 
             border-radius:
                 9px;
@@ -165,14 +181,17 @@
             background:
                 #4f46e5;
 
-            color: white;
+            color:
+                white;
 
             font-size:
                 16px;
 
-            font-weight: bold;
+            font-weight:
+                bold;
 
-            cursor: pointer;
+            cursor:
+                pointer;
         }
 
 
@@ -198,7 +217,8 @@
             margin-top:
                 20px;
 
-            text-align: center;
+            text-align:
+                center;
 
             color:
                 #6b7280;
@@ -207,9 +227,11 @@
 
         .tools {
 
-            display: flex;
+            display:
+                flex;
 
-            flex-wrap: wrap;
+            flex-wrap:
+                wrap;
 
             gap:
                 8px;
@@ -266,7 +288,7 @@
         }
 
 
-        @media(max-width: 650px) {
+        @media (max-width: 650px) {
 
             .grid {
 
@@ -310,9 +332,9 @@
         </p>
 
 
-        <!-- ============================= -->
-        <!-- FORM -->
-        <!-- ============================= -->
+        <!-- =========================================
+             TRAVEL FORM
+        ========================================== -->
 
         <form id="travelForm">
 
@@ -320,7 +342,7 @@
             <div class="grid">
 
 
-                <!-- Origin -->
+                <!-- STARTING CITY -->
 
                 <div>
 
@@ -330,14 +352,14 @@
 
                     <input
                         id="origin"
-                        value="Hyderabad"
+                        placeholder="Enter your city"
                         required
                     >
 
                 </div>
 
 
-                <!-- Destination -->
+                <!-- DESTINATION -->
 
                 <div>
 
@@ -347,31 +369,31 @@
 
                     <input
                         id="destination"
-                        placeholder="Goa"
+                        placeholder="Enter destination"
                         required
                     >
 
                 </div>
 
 
-                <!-- Budget -->
+                <!-- BUDGET -->
 
                 <div>
 
                     <label>
-                        Budget
+                        Budget (USD)
                     </label>
 
                     <input
                         id="budget"
-                        placeholder="INR 30000"
+                        placeholder="$500"
                         required
                     >
 
                 </div>
 
 
-                <!-- Duration -->
+                <!-- DURATION -->
 
                 <div>
 
@@ -388,7 +410,7 @@
                 </div>
 
 
-                <!-- Interests -->
+                <!-- INTERESTS -->
 
                 <div class="full">
 
@@ -398,7 +420,7 @@
 
                     <input
                         id="interests"
-                        value="beaches, food, sightseeing"
+                        placeholder="e.g. beaches, food, sightseeing"
                     >
 
                 </div>
@@ -412,7 +434,7 @@
                 type="submit"
             >
 
-                Generate Travel Plan
+                🤖 Generate Travel Plan
 
             </button>
 
@@ -420,27 +442,27 @@
         </form>
 
 
-        <!-- ============================= -->
-        <!-- STATUS -->
-        <!-- ============================= -->
+        <!-- =========================================
+             STATUS
+        ========================================== -->
 
         <div id="status"></div>
 
 
-        <!-- ============================= -->
-        <!-- TOOLS USED -->
-        <!-- ============================= -->
+        <!-- =========================================
+             TOOLS USED
+        ========================================== -->
 
         <div id="toolBox"></div>
 
 
-        <!-- ============================= -->
-        <!-- RESULT -->
-        <!-- ============================= -->
+        <!-- =========================================
+             RESULT
+        ========================================== -->
 
         <pre id="result">
 
-Your AI travel plan will appear here...
+Your AI-generated travel plan will appear here...
 
         </pre>
 
@@ -452,6 +474,10 @@ Your AI travel plan will appear here...
 
 <script>
 
+
+// ========================================================
+// GET HTML ELEMENTS
+// ========================================================
 
 const form =
     document.getElementById(
@@ -484,9 +510,9 @@ const toolBox =
 
 
 
-/* =====================================
-   FORM SUBMISSION
-   ===================================== */
+// ========================================================
+// FORM SUBMISSION
+// ========================================================
 
 form.addEventListener(
     "submit",
@@ -496,13 +522,17 @@ form.addEventListener(
         event.preventDefault();
 
 
-        button.disabled = true;
+        // Disable button
+        button.disabled =
+            true;
 
 
+        // Show status
         statusBox.textContent =
-            "🤖 Agent is researching your trip...";
+            "🤖 Agent is researching flights, hotels, places and weather...";
 
 
+        // Clear old result
         resultBox.textContent =
             "";
 
@@ -512,35 +542,45 @@ form.addEventListener(
 
 
 
-        /* ================================
-           COLLECT USER INPUT
-           ================================= */
+        // =================================================
+        // GET USER INPUT
+        // =================================================
 
         const data = {
 
             origin:
                 document
-                .getElementById("origin")
+                .getElementById(
+                    "origin"
+                )
                 .value,
 
             destination:
                 document
-                .getElementById("destination")
+                .getElementById(
+                    "destination"
+                )
                 .value,
 
             budget:
                 document
-                .getElementById("budget")
+                .getElementById(
+                    "budget"
+                )
                 .value,
 
             duration:
                 document
-                .getElementById("duration")
+                .getElementById(
+                    "duration"
+                )
                 .value,
 
             interests:
                 document
-                .getElementById("interests")
+                .getElementById(
+                    "interests"
+                )
                 .value
         };
 
@@ -549,16 +589,17 @@ form.addEventListener(
         try {
 
 
-            /* ============================
-               SEND REQUEST TO FASTAPI
-               ============================ */
+            // =================================================
+            // SEND REQUEST TO FASTAPI
+            // =================================================
 
             const response =
                 await fetch(
                     "/api/plan",
                     {
 
-                        method: "POST",
+                        method:
+                            "POST",
 
                         headers: {
 
@@ -567,20 +608,23 @@ form.addEventListener(
                         },
 
                         body:
-                            JSON.stringify(data)
+                            JSON.stringify(
+                                data
+                            )
                     }
                 );
 
 
 
+            // Convert response to JSON
             const result =
                 await response.json();
 
 
 
-            /* ============================
-               ERROR HANDLING
-               ============================ */
+            // =================================================
+            // ERROR HANDLING
+            // =================================================
 
             if (!response.ok) {
 
@@ -592,53 +636,60 @@ form.addEventListener(
 
 
 
-            /* ============================
-               SUCCESS
-               ============================ */
+            // =================================================
+            // SUCCESS
+            // =================================================
 
             statusBox.textContent =
-                "✅ Travel plan generated!";
+                "✅ Travel plan generated successfully!";
 
 
 
-            /* ============================
-               SHOW TOOLS
-               ============================ */
+            // =================================================
+            // DISPLAY TOOLS USED
+            // =================================================
 
-            const tools =
-                [
-                    ...new Set(
+            const tools = [
 
-                        (result.tools_used || [])
-                        .map(
-                            item =>
-                                item.tool
-                        )
+                ...new Set(
+
+                    (
+                        result.tools_used ||
+                        []
                     )
-                ];
-
-
-
-            toolBox.innerHTML =
-
-                '<div class="tools">' +
-
-                tools
-                .map(
-                    tool =>
-                        `<span class="tool">
-                            🔧 ${tool}
-                         </span>`
+                    .map(
+                        item =>
+                            item.tool
+                    )
                 )
-                .join("") +
-
-                '</div>';
+            ];
 
 
+            if (tools.length > 0) {
 
-            /* ============================
-               SHOW FINAL PLAN
-               ============================ */
+                toolBox.innerHTML =
+
+                    '<div class="tools">' +
+
+                    tools
+                    .map(
+
+                        tool =>
+
+                            `<span class="tool">
+                                🔧 ${tool}
+                            </span>`
+                    )
+                    .join("") +
+
+                    '</div>';
+            }
+
+
+
+            // =================================================
+            // DISPLAY FINAL PLAN
+            // =================================================
 
             resultBox.textContent =
                 result.plan ||
@@ -647,8 +698,13 @@ form.addEventListener(
 
         }
 
+
         catch(error) {
 
+
+            // =================================================
+            // ERROR
+            // =================================================
 
             statusBox.textContent =
                 "❌ Error: " +
@@ -662,6 +718,8 @@ form.addEventListener(
 
         finally {
 
+
+            // Enable button
             button.disabled =
                 false;
         }
