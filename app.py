@@ -100,11 +100,11 @@ def create_travel_plan(
 ):
 
     # Check Gemini API key
-    if not os.getenv("GEMINI_API_KEY"):
+    if not os.getenv("GOOGLE_API_KEY"):
 
         raise HTTPException(
             status_code=500,
-            detail="GEMINI_API_KEY is missing"
+            detail="GOOGLE_API_KEY is missing"
         )
 
     # Check Tavily API key
