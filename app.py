@@ -1,68 +1,63 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from agent import run_travel_agent
+from agent import travel_agent
+
+
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
 
 load_dotenv()
 
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+
+# ============================================================
+# CHECK API KEYS
+# ============================================================
+
+if not GEMINI_API_KEY:
+    print("WARNING: GOOGLE_API_KEY is missing")
+
+if not TAVILY_API_KEY:
+    print("WARNING: TAVILY_API_KEY is missing")
+
+
+# ============================================================
+# FASTAPI APP
+# ============================================================
+
 app = FastAPI(
-    title="AI Travel Planner Agent",
-    description="AI-powered travel planning agent using Gemini and multiple tools",
+    title="AI Travel Planner",
+    description="Gemini + Tavily AI Travel Planning Agent",
     version="1.0.0"
 )
 
+
 # ============================================================
-# CORS
+# STATIC FILES
 # ============================================================
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+app.mount(
+    "/static",
+    StaticFiles(directory="static"),
+    name="static"
 )
 
 
 # ============================================================
-# USER INPUT MODEL
+# REQUEST MODEL
 # ============================================================
 
-class TravelRequest(BaseModel):
-
-    origin: str = Field(
-        ...,
-        min_length=2,
-        description="Starting city"
-    )
-
-    destination: str = Field(
-        ...,
-        min_length=2,
-        description="Destination city or country"
-    )
-
-    budget: str = Field(
-        ...,
-        min_length=1,
-        description="Travel budget in USD"
-    )
-
-    duration: str = Field(
-        ...,
-        min_length=1,
-        description="Trip duration"
-    )
-
-    interests: str = Field(
-        default="sightseeing, food, culture",
-        description="Travel interests"
-    )
+class ChatRequest(BaseModel):
+    message: str
 
 
 # ============================================================
@@ -70,7 +65,7 @@ class TravelRequest(BaseModel):
 # ============================================================
 
 @app.get("/")
-def home():
+async def home():
 
     return FileResponse(
         "static/index.html"
@@ -82,75 +77,44 @@ def home():
 # ============================================================
 
 @app.get("/health")
-def health():
+async def health():
 
     return {
-        "status": "success",
-        "message": "AI Travel Planner Agent is running"
+        "status": "online",
+        "gemini_key": bool(GEMINI_API_KEY),
+        "tavily_key": bool(TAVILY_API_KEY)
     }
 
 
 # ============================================================
-# CREATE TRAVEL PLAN
+# CHAT ENDPOINT
 # ============================================================
 
-@app.post("/api/plan")
-def create_travel_plan(
-    request: TravelRequest
-):
-
-    # Check Gemini API key
-    if not os.getenv("GOOGLE_API_KEY"):
-
-        raise HTTPException(
-            status_code=500,
-            detail="GOOGLE_API_KEY is missing"
-        )
-
-    # Check Tavily API key
-    if not os.getenv("TAVILY_API_KEY"):
-
-        raise HTTPException(
-            status_code=500,
-            detail="TAVILY_API_KEY is missing"
-        )
+@app.post("/chat")
+async def chat(request: ChatRequest):
 
     try:
 
-        # Convert request into dictionary
-        user_input = request.model_dump()
+        if not GOOGLE_API_KEY:
+            return {
+                "success": False,
+                "response": "Gemini API key is missing. Add GOOGLE_API_KEY to your environment variables."
+            }
 
-        # Send data to Agent Core
-        result = run_travel_agent(
-            user_input
+        response = travel_agent(
+            request.message
         )
 
-        return result
+        return {
+            "success": True,
+            "response": response
+        }
 
-    except Exception as error:
+    except Exception as e:
 
-        raise HTTPException(
-            status_code=500,
-            detail=f"Agent error: {str(error)}"
-        )
+        print("Agent Error:", str(e))
 
-
-# ============================================================
-# RUN LOCALLY
-# ============================================================
-
-if __name__ == "__main__":
-
-    import uvicorn
-
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=int(
-            os.getenv(
-                "PORT",
-                8000
-            )
-        ),
-        reload=True
-    )
+        return {
+            "success": False,
+            "response": f"Agent error: {str(e)}"
+        }
