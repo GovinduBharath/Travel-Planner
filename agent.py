@@ -1,270 +1,230 @@
+import json
 import os
+import requests
 
-from typing import TypedDict
+from tools import TOOL_FUNCTIONS
 
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-from langchain_core.messages import (
-    HumanMessage,
-    SystemMessage
-)
-
-from langgraph.graph import (
-    StateGraph,
-    START,
-    END
-)
-
-from langgraph.prebuilt import (
-    ToolNode,
-    tools_condition
-)
-
-from tools import TOOLS
-
-
-# ============================================================
-# API KEY
-# ============================================================
 
 GOOGLE_API_KEY = os.getenv(
     "GOOGLE_API_KEY"
 )
 
-
-# ============================================================
-# GEMINI MODEL
-# ============================================================
-
-MODEL_NAME = os.getenv(
+GEMINI_MODEL = os.getenv(
     "GEMINI_MODEL",
-    "gemini-2.5-flash"
+    "gemini-3.6-flash"
 )
 
 
-llm = ChatGoogleGenerativeAI(
+TOOL_DECLARATIONS = [
 
-    model=MODEL_NAME,
+    {
+        "name": "search_flights",
 
-    google_api_key=GOOGLE_API_KEY,
+        "description": """
+        Search for flight options from the
+        user's origin to destination.
+        Include approximate prices, airlines
+        and flight duration.
+        Prices should be in USD.
+        """,
 
-    temperature=0.2,
+        "parameters": {
+            "type": "object",
 
-    max_retries=2
-)
+            "properties": {
 
+                "origin": {
+                    "type": "string"
+                },
 
-# ============================================================
-# BIND TOOLS
-# ============================================================
+                "destination": {
+                    "type": "string"
+                },
 
-llm_with_tools = llm.bind_tools(
-    TOOLS
-)
+                "duration": {
+                    "type": "string"
+                },
 
+                "budget": {
+                    "type": "string"
+                }
+            },
 
-# ============================================================
-# GRAPH STATE
-# ============================================================
-
-class AgentState(TypedDict):
-
-    messages: list
-
-
-# ============================================================
-# AGENT NODE
-# ============================================================
-
-def agent_node(
-    state: AgentState
-):
-
-    system_message = SystemMessage(
-
-        content="""
-
-You are an intelligent AI Travel Planner Agent.
-
-Your job is to create a personalized,
-budget-friendly travel itinerary.
-
-You have access to these tools:
-
-1. Flight Search
-2. Hotel Search
-3. Places Search
-4. Weather Check
-
-==================================================
-AGENT BEHAVIOR
-==================================================
-
-Analyze the user's request.
-
-Use the appropriate tools to gather
-real-world information.
-
-For a complete travel request,
-normally use all four tools.
-
-You can call multiple tools.
-
-Do not invent flight availability.
-
-Do not invent hotel availability.
-
-Web search prices are approximate.
-
-The user's budget is in USD.
-
-Consider:
-
-- Starting city
-- Destination
-- Budget
-- Duration
-- Interests
-- Weather
-
-Use the weather information to improve
-the itinerary.
-
-Try to keep the estimated trip cost
-within the user's budget.
-
-==================================================
-FINAL RESPONSE
-==================================================
-
-After gathering information, create:
-
-1. TRIP SUMMARY
-
-2. FLIGHT OPTIONS
-
-3. HOTEL OPTIONS
-
-4. DAY-BY-DAY ITINERARY
-
-5. WEATHER
-
-6. ESTIMATED BUDGET
-
-7. TRAVEL TIPS
-
-8. USEFUL SOURCES
-
-Make the final response clear,
-organized and easy to understand.
-
-"""
-
-    )
+            "required": [
+                "origin",
+                "destination",
+                "duration",
+                "budget"
+            ]
+        }
+    },
 
 
-    messages = [
+    {
+        "name": "search_hotels",
 
-        system_message
+        "description": """
+        Search for hotels and accommodation
+        at the destination.
+        Consider duration and USD budget.
+        """,
 
-    ] + state["messages"]
+        "parameters": {
+            "type": "object",
+
+            "properties": {
+
+                "destination": {
+                    "type": "string"
+                },
+
+                "duration": {
+                    "type": "string"
+                },
+
+                "budget": {
+                    "type": "string"
+                }
+            },
+
+            "required": [
+                "destination",
+                "duration",
+                "budget"
+            ]
+        }
+    },
 
 
-    response = llm_with_tools.invoke(
-        messages
-    )
+    {
+        "name": "search_places",
+
+        "description": """
+        Search for tourist attractions,
+        restaurants, activities and places
+        to visit.
+        """,
+
+        "parameters": {
+            "type": "object",
+
+            "properties": {
+
+                "destination": {
+                    "type": "string"
+                },
+
+                "duration": {
+                    "type": "string"
+                },
+
+                "interests": {
+                    "type": "string"
+                }
+            },
+
+            "required": [
+                "destination",
+                "duration",
+                "interests"
+            ]
+        }
+    },
 
 
-    return {
+    {
+        "name": "get_weather",
 
-        "messages": [
-            response
-        ]
+        "description": """
+        Get current and forecast weather
+        information for the destination.
+        """,
 
+        "parameters": {
+            "type": "object",
+
+            "properties": {
+
+                "destination": {
+                    "type": "string"
+                }
+            },
+
+            "required": [
+                "destination"
+            ]
+        }
     }
 
+]
 
-# ============================================================
-# BUILD LANGGRAPH
-# ============================================================
 
-def build_graph():
+def call_gemini(contents):
 
-    graph = StateGraph(
-        AgentState
+    url = (
+        "https://generativelanguage.googleapis.com/"
+        f"v1beta/models/{GEMINI_MODEL}:generateContent"
+        f"?key={GOOGLE_API_KEY}"
     )
 
+    payload = {
 
-    # Agent node
-    graph.add_node(
-        "agent",
-        agent_node
-    )
+        "contents": contents,
 
+        "tools": [
+            {
+                "function_declarations":
+                    TOOL_DECLARATIONS
+            }
+        ],
 
-    # Tool node
-    graph.add_node(
-        "tools",
-        ToolNode(TOOLS)
-    )
+        "generationConfig": {
 
+            "temperature": 0.2,
 
-    # START → Agent
-    graph.add_edge(
-        START,
-        "agent"
-    )
-
-
-    # Agent → Tools OR END
-    graph.add_conditional_edges(
-
-        "agent",
-
-        tools_condition,
-
-        {
-
-            "tools":
-                "tools",
-
-            END:
-                END
-
+            "maxOutputTokens": 4000
         }
+    }
 
+    response = requests.post(
+        url,
+        json=payload,
+        timeout=90
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def extract_parts(response):
+
+    candidates = response.get(
+        "candidates",
+        []
+    )
+
+    if not candidates:
+
+        raise RuntimeError(
+            "Gemini returned no response."
+        )
+
+    return candidates[0].get(
+        "content",
+        {}
+    ).get(
+        "parts",
+        []
     )
 
 
-    # Tools → Agent
-    graph.add_edge(
-        "tools",
-        "agent"
-    )
+def run_travel_agent(user_input):
 
+    prompt = f"""
+You are an AI Travel Planner Agent.
 
-    return graph.compile()
-
-
-# ============================================================
-# CREATE GRAPH
-# ============================================================
-
-travel_graph = build_graph()
-
-
-# ============================================================
-# RUN AGENT
-# ============================================================
-
-def run_travel_agent(
-    user_input
-):
-
-    user_message = f"""
-
-Create a travel plan using the
-following user information:
+User information:
 
 Starting City:
 {user_input["origin"]}
@@ -281,133 +241,207 @@ Duration:
 Interests:
 {user_input["interests"]}
 
-Use your tools to research the trip
-and then create the final optimized itinerary.
+Your task is to create a complete,
+personalized and budget-friendly travel plan.
 
+Use the available tools to research:
+
+1. Flights
+2. Hotels
+3. Places to visit
+4. Weather
+
+The user's budget is in USD.
+
+Consider the user's budget, duration
+and interests.
+
+Do not invent exact flight or hotel
+availability.
+
+Web prices are approximate.
+
+After collecting the information,
+create a final travel plan.
+
+Include:
+
+TRIP SUMMARY
+
+FLIGHT OPTIONS
+
+HOTEL OPTIONS
+
+DAY-BY-DAY ITINERARY
+
+WEATHER
+
+ESTIMATED BUDGET
+
+TRAVEL TIPS
+
+USEFUL SOURCES
 """
 
-
-    result = travel_graph.invoke(
+    contents = [
 
         {
+            "role": "user",
 
-            "messages": [
-
-                HumanMessage(
-                    content=user_message
-                )
-
+            "parts": [
+                {
+                    "text": prompt
+                }
             ]
-
         }
 
-    )
-
-
-    messages = result.get(
-        "messages",
-        []
-    )
-
-
-    # --------------------------------------------------------
-    # GET FINAL MESSAGE
-    # --------------------------------------------------------
-
-    final_message = messages[-1]
-
-    final_text = final_message.content
-
-
-    # Some Gemini responses can contain
-    # structured content blocks.
-    if isinstance(
-        final_text,
-        list
-    ):
-
-        text_parts = []
-
-        for part in final_text:
-
-            if isinstance(
-                part,
-                dict
-            ):
-
-                if part.get("text"):
-
-                    text_parts.append(
-                        part["text"]
-                    )
-
-            elif isinstance(
-                part,
-                str
-            ):
-
-                text_parts.append(part)
-
-
-        final_text = "\n".join(
-            text_parts
-        )
-
-
-    # --------------------------------------------------------
-    # FIND TOOLS USED
-    # --------------------------------------------------------
+    ]
 
     tools_used = []
 
 
-    for message in messages:
+    for _ in range(6):
 
-        tool_calls = getattr(
-            message,
-            "tool_calls",
-            []
+        response = call_gemini(
+            contents
         )
 
+        parts = extract_parts(
+            response
+        )
 
-        for call in tool_calls:
+        contents.append({
+
+            "role": "model",
+
+            "parts": parts
+
+        })
+
+
+        function_calls = [
+
+            part.get("functionCall")
+
+            for part in parts
+
+            if part.get("functionCall")
+        ]
+
+
+        if not function_calls:
+
+            final_text = "\n".join(
+
+                part.get(
+                    "text",
+                    ""
+                )
+
+                for part in parts
+
+                if part.get("text")
+
+            ).strip()
+
+
+            return {
+
+                "status":
+                    "success",
+
+                "destination":
+                    user_input[
+                        "destination"
+                    ],
+
+                "tools_used":
+                    tools_used,
+
+                "plan":
+                    final_text,
+
+                "model":
+                    GEMINI_MODEL
+            }
+
+
+        tool_results = []
+
+
+        for function_call in function_calls:
+
+            tool_name = function_call.get(
+                "name"
+            )
+
+            arguments = function_call.get(
+                "args",
+                {}
+            )
+
+
+            if tool_name not in TOOL_FUNCTIONS:
+
+                result = {
+                    "error":
+                        f"Unknown tool: {tool_name}"
+                }
+
+            else:
+
+                try:
+
+                    result = TOOL_FUNCTIONS[
+                        tool_name
+                    ](
+                        **arguments
+                    )
+
+                except Exception as error:
+
+                    result = {
+                        "error":
+                            str(error)
+                    }
+
 
             tools_used.append({
 
                 "tool":
-                    call.get(
-                        "name"
-                    ),
+                    tool_name,
 
                 "arguments":
-                    call.get(
-                        "args",
-                        {}
-                    )
+                    arguments
 
             })
 
 
-    return {
+            tool_results.append({
 
-        "status":
-            "success",
+                "functionResponse": {
 
-        "destination":
-            user_input[
-                "destination"
-            ],
+                    "name":
+                        tool_name,
 
-        "framework":
-            "LangChain + LangGraph",
+                    "response":
+                        result
 
-        "model":
-            MODEL_NAME,
+                }
 
-        "tools_used":
-            tools_used,
+            })
 
-        "plan":
-            final_text
 
-    }
+        contents.append({
+
+            "role": "user",
+
+            "parts":
+                tool_results
+
+        })
+
+
+    raise RuntimeError(
+        "Agent exceeded maximum tool calls."
+    )
