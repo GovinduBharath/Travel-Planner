@@ -1,43 +1,31 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from agent import travel_agent
-
-
-# ============================================================
-# LOAD ENVIRONMENT VARIABLES
-# ============================================================
+from agent import run_travel_agent
 
 load_dotenv()
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-
-
-# ============================================================
-# FASTAPI APP
-# ============================================================
-
 app = FastAPI(
-    title="AI Travel Planner",
-    description="AI Travel Planner powered by Google Gemini and Tavily",
-    version="1.0.0"
+    title="AI Travel Planner Agent",
+    description="Travel Planner using LangChain, LangGraph and Gemini",
+    version="2.0.0"
 )
 
-
 # ============================================================
-# STATIC FILES
+# CORS
 # ============================================================
 
-app.mount(
-    "/static",
-    StaticFiles(directory="static"),
-    name="static"
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 
@@ -45,8 +33,34 @@ app.mount(
 # REQUEST MODEL
 # ============================================================
 
-class ChatRequest(BaseModel):
-    message: str
+class TravelRequest(BaseModel):
+
+    origin: str = Field(
+        ...,
+        min_length=2,
+        description="Starting city"
+    )
+
+    destination: str = Field(
+        ...,
+        min_length=2,
+        description="Destination"
+    )
+
+    budget: str = Field(
+        ...,
+        description="Budget in USD"
+    )
+
+    duration: str = Field(
+        ...,
+        description="Trip duration"
+    )
+
+    interests: str = Field(
+        default="sightseeing, food, culture",
+        description="Travel interests"
+    )
 
 
 # ============================================================
@@ -54,8 +68,11 @@ class ChatRequest(BaseModel):
 # ============================================================
 
 @app.get("/")
-async def home():
-    return FileResponse("static/index.html")
+def home():
+
+    return FileResponse(
+        "static/index.html"
+    )
 
 
 # ============================================================
@@ -63,38 +80,70 @@ async def home():
 # ============================================================
 
 @app.get("/health")
-async def health():
+def health():
 
     return {
-        "status": "online",
-        "google_key": bool(GOOGLE_API_KEY),
-        "tavily_key": bool(TAVILY_API_KEY)
+        "status": "success",
+        "message": "AI Travel Planner is running",
+        "framework": "LangChain + LangGraph",
+        "llm": "Google Gemini"
     }
 
 
 # ============================================================
-# CHAT
+# TRAVEL PLAN
 # ============================================================
 
-@app.post("/chat")
-async def chat(request: ChatRequest):
+@app.post("/api/plan")
+def create_travel_plan(
+    request: TravelRequest
+):
+
+    if not os.getenv("GOOGLE_API_KEY"):
+
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_API_KEY is missing"
+        )
+
+    if not os.getenv("TAVILY_API_KEY"):
+
+        raise HTTPException(
+            status_code=500,
+            detail="TAVILY_API_KEY is missing"
+        )
 
     try:
 
-        response = travel_agent(
-            request.message
+        user_input = request.model_dump()
+
+        result = run_travel_agent(
+            user_input
         )
 
-        return {
-            "success": True,
-            "response": response
-        }
+        return result
 
-    except Exception as e:
+    except Exception as error:
 
-        print("Agent Error:", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Agent error: {str(error)}"
+        )
 
-        return {
-            "success": False,
-            "response": f"Agent error: {str(e)}"
-        }
+
+# ============================================================
+# LOCAL DEVELOPMENT
+# ============================================================
+
+if __name__ == "__main__":
+
+    import uvicorn
+
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=int(
+            os.getenv("PORT", 8000)
+        ),
+        reload=True
+    )
