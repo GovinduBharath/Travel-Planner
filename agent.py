@@ -1,356 +1,413 @@
 import os
-import time
 
-from dotenv import load_dotenv
-from google import genai
+from typing import TypedDict
 
-from tools import web_search
+from langchain_google_genai import ChatGoogleGenerativeAI
 
+from langchain_core.messages import (
+    HumanMessage,
+    SystemMessage
+)
 
-# ============================================================
-# LOAD ENVIRONMENT VARIABLES
-# ============================================================
+from langgraph.graph import (
+    StateGraph,
+    START,
+    END
+)
 
-load_dotenv()
+from langgraph.prebuilt import (
+    ToolNode,
+    tools_condition
+)
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
-
-# ============================================================
-# CHECK API KEY
-# ============================================================
-
-if not GOOGLE_API_KEY:
-
-    raise ValueError(
-        "GOOGLE_API_KEY is missing. "
-        "Add GOOGLE_API_KEY to your .env file."
-    )
+from tools import TOOLS
 
 
 # ============================================================
-# GEMINI CLIENT
+# API KEY
 # ============================================================
 
-client = genai.Client(
-    api_key=GOOGLE_API_KEY
+GOOGLE_API_KEY = os.getenv(
+    "GOOGLE_API_KEY"
 )
 
 
 # ============================================================
-# GEMINI MODELS
+# GEMINI MODEL
 # ============================================================
 
-MODELS = [
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite"
-]
+MODEL_NAME = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-2.5-flash"
+)
+
+
+llm = ChatGoogleGenerativeAI(
+
+    model=MODEL_NAME,
+
+    google_api_key=GOOGLE_API_KEY,
+
+    temperature=0.2,
+
+    max_retries=2
+)
 
 
 # ============================================================
-# SYSTEM PROMPT
+# BIND TOOLS
 # ============================================================
 
-SYSTEM_PROMPT = """
-You are an intelligent AI Travel Planner.
+llm_with_tools = llm.bind_tools(
+    TOOLS
+)
 
-Your job is to create personalized and practical travel plans.
 
-You help users with:
+# ============================================================
+# GRAPH STATE
+# ============================================================
 
-- Destination planning
-- Travel itineraries
-- Tourist attractions
-- Hotels
-- Restaurants
-- Local food
-- Transportation
-- Budget planning
-- Activities
-- Best time to visit
-- Solo trips
-- Family trips
-- Couple trips
-- Weekend trips
-- International trips
-- Local trips
+class AgentState(TypedDict):
 
-IMPORTANT RULES:
+    messages: list
 
-1. Understand the destination.
-2. Consider the number of days.
-3. Consider the number of travelers.
-4. Consider the user's budget.
-5. Consider the user's interests.
-6. Use USD ($) for estimated costs.
-7. Keep the answer simple and practical.
-8. Do not invent current prices.
-9. Do not invent current opening hours.
-10. Use web information when current information is required.
 
-For itineraries use:
+# ============================================================
+# AGENT NODE
+# ============================================================
 
-DESTINATION:
-TRIP DURATION:
-TRAVELERS:
-ESTIMATED BUDGET:
+def agent_node(
+    state: AgentState
+):
 
-DAY 1:
-Morning:
-Afternoon:
-Evening:
+    system_message = SystemMessage(
 
-DAY 2:
-Morning:
-Afternoon:
-Evening:
+        content="""
 
-Continue for all requested days.
+You are an intelligent AI Travel Planner Agent.
 
-Then include:
+Your job is to create a personalized,
+budget-friendly travel itinerary.
 
-PLACES TO STAY:
-FOOD:
-TRANSPORTATION:
-ESTIMATED COST:
-TRAVEL TIPS:
+You have access to these tools:
 
-If current information is requested, use the Tavily search
-results provided in the prompt.
+1. Flight Search
+2. Hotel Search
+3. Places Search
+4. Weather Check
+
+==================================================
+AGENT BEHAVIOR
+==================================================
+
+Analyze the user's request.
+
+Use the appropriate tools to gather
+real-world information.
+
+For a complete travel request,
+normally use all four tools.
+
+You can call multiple tools.
+
+Do not invent flight availability.
+
+Do not invent hotel availability.
+
+Web search prices are approximate.
+
+The user's budget is in USD.
+
+Consider:
+
+- Starting city
+- Destination
+- Budget
+- Duration
+- Interests
+- Weather
+
+Use the weather information to improve
+the itinerary.
+
+Try to keep the estimated trip cost
+within the user's budget.
+
+==================================================
+FINAL RESPONSE
+==================================================
+
+After gathering information, create:
+
+1. TRIP SUMMARY
+
+2. FLIGHT OPTIONS
+
+3. HOTEL OPTIONS
+
+4. DAY-BY-DAY ITINERARY
+
+5. WEATHER
+
+6. ESTIMATED BUDGET
+
+7. TRAVEL TIPS
+
+8. USEFUL SOURCES
+
+Make the final response clear,
+organized and easy to understand.
+
 """
 
-
-# ============================================================
-# DETERMINE WHETHER TAVILY IS NEEDED
-# ============================================================
-
-def needs_web_search(message: str):
-
-    keywords = [
-
-        "latest",
-        "current",
-        "today",
-        "price",
-        "prices",
-        "hotel",
-        "hotels",
-        "restaurant",
-        "restaurants",
-        "opening hours",
-        "open now",
-        "ticket",
-        "tickets",
-        "flight",
-        "flights",
-        "train",
-        "trains",
-        "bus",
-        "buses",
-        "visa",
-        "weather",
-        "events",
-        "things to do",
-        "best places",
-        "tourist places",
-        "attractions",
-        "near me"
-
-    ]
-
-    message = message.lower()
-
-    return any(
-        keyword in message
-        for keyword in keywords
     )
 
 
+    messages = [
+
+        system_message
+
+    ] + state["messages"]
+
+
+    response = llm_with_tools.invoke(
+        messages
+    )
+
+
+    return {
+
+        "messages": [
+            response
+        ]
+
+    }
+
+
 # ============================================================
-# CALL GEMINI WITH RETRY + FALLBACK
+# BUILD LANGGRAPH
 # ============================================================
 
-def generate_with_fallback(prompt: str):
+def build_graph():
 
-    last_error = None
+    graph = StateGraph(
+        AgentState
+    )
 
 
-    for model in MODELS:
+    # Agent node
+    graph.add_node(
+        "agent",
+        agent_node
+    )
 
-        for attempt in range(2):
 
-            try:
+    # Tool node
+    graph.add_node(
+        "tools",
+        ToolNode(TOOLS)
+    )
 
-                print(
-                    f"Trying Gemini model: {model} "
-                    f"(attempt {attempt + 1})"
+
+    # START → Agent
+    graph.add_edge(
+        START,
+        "agent"
+    )
+
+
+    # Agent → Tools OR END
+    graph.add_conditional_edges(
+
+        "agent",
+
+        tools_condition,
+
+        {
+
+            "tools":
+                "tools",
+
+            END:
+                END
+
+        }
+
+    )
+
+
+    # Tools → Agent
+    graph.add_edge(
+        "tools",
+        "agent"
+    )
+
+
+    return graph.compile()
+
+
+# ============================================================
+# CREATE GRAPH
+# ============================================================
+
+travel_graph = build_graph()
+
+
+# ============================================================
+# RUN AGENT
+# ============================================================
+
+def run_travel_agent(
+    user_input
+):
+
+    user_message = f"""
+
+Create a travel plan using the
+following user information:
+
+Starting City:
+{user_input["origin"]}
+
+Destination:
+{user_input["destination"]}
+
+Budget:
+{user_input["budget"]} USD
+
+Duration:
+{user_input["duration"]}
+
+Interests:
+{user_input["interests"]}
+
+Use your tools to research the trip
+and then create the final optimized itinerary.
+
+"""
+
+
+    result = travel_graph.invoke(
+
+        {
+
+            "messages": [
+
+                HumanMessage(
+                    content=user_message
                 )
 
+            ]
 
-                response = client.models.generate_content(
+        }
 
-                    model=model,
-
-                    contents=prompt
-                )
+    )
 
 
-                if response and response.text:
+    messages = result.get(
+        "messages",
+        []
+    )
 
-                    print(
-                        f"Successfully used: {model}"
+
+    # --------------------------------------------------------
+    # GET FINAL MESSAGE
+    # --------------------------------------------------------
+
+    final_message = messages[-1]
+
+    final_text = final_message.content
+
+
+    # Some Gemini responses can contain
+    # structured content blocks.
+    if isinstance(
+        final_text,
+        list
+    ):
+
+        text_parts = []
+
+        for part in final_text:
+
+            if isinstance(
+                part,
+                dict
+            ):
+
+                if part.get("text"):
+
+                    text_parts.append(
+                        part["text"]
                     )
 
-                    return response.text
+            elif isinstance(
+                part,
+                str
+            ):
+
+                text_parts.append(part)
 
 
-            except Exception as e:
-
-                last_error = e
-
-                error_text = str(e).lower()
-
-                print(
-                    f"{model} failed: {e}"
-                )
+        final_text = "\n".join(
+            text_parts
+        )
 
 
-                # --------------------------------------------
-                # RETRY TEMPORARY SERVER / RATE ERRORS
-                # --------------------------------------------
+    # --------------------------------------------------------
+    # FIND TOOLS USED
+    # --------------------------------------------------------
 
-                if (
-                    "503" in error_text
-                    or "unavailable" in error_text
-                    or "429" in error_text
-                    or "resource exhausted" in error_text
-                ):
-
-                    if attempt == 0:
-
-                        print(
-                            f"Temporary error. "
-                            f"Retrying {model}..."
-                        )
-
-                        time.sleep(2)
-
-                        continue
+    tools_used = []
 
 
-                    # Move to next model
+    for message in messages:
 
-                    break
+        tool_calls = getattr(
+            message,
+            "tool_calls",
+            []
+        )
 
 
-                # --------------------------------------------
-                # MODEL NOT AVAILABLE
-                # --------------------------------------------
+        for call in tool_calls:
 
-                if (
-                    "404" in error_text
-                    or "not found" in error_text
-                    or "no longer available" in error_text
-                ):
+            tools_used.append({
 
-                    print(
-                        f"{model} is unavailable. "
-                        f"Trying next model..."
+                "tool":
+                    call.get(
+                        "name"
+                    ),
+
+                "arguments":
+                    call.get(
+                        "args",
+                        {}
                     )
 
-                    break
+            })
 
 
-                # --------------------------------------------
-                # OTHER ERROR
-                # --------------------------------------------
+    return {
 
-                raise
+        "status":
+            "success",
 
+        "destination":
+            user_input[
+                "destination"
+            ],
 
-    raise RuntimeError(
-        "All Gemini models are currently unavailable. "
-        f"Last error: {last_error}"
-    )
+        "framework":
+            "LangChain + LangGraph",
 
+        "model":
+            MODEL_NAME,
 
-# ============================================================
-# MAIN TRAVEL AGENT
-# ============================================================
+        "tools_used":
+            tools_used,
 
-def travel_agent(user_message: str):
+        "plan":
+            final_text
 
-    web_context = ""
-
-
-    # ========================================================
-    # TAVILY SEARCH
-    # ========================================================
-
-    if needs_web_search(user_message):
-
-        try:
-
-            print(
-                "Searching Tavily..."
-            )
-
-
-            search_results = web_search(
-                user_message
-            )
-
-
-            web_context = f"""
-
-CURRENT WEB INFORMATION:
-
-{search_results}
-
-Use this information when relevant.
-Do not invent current information.
-"""
-
-
-        except Exception as e:
-
-            print(
-                "Tavily Error:",
-                str(e)
-            )
-
-
-            web_context = """
-
-Tavily web search was unavailable.
-
-Use general knowledge, but do not claim uncertain
-information is current.
-"""
-
-
-    # ========================================================
-    # FINAL PROMPT
-    # ========================================================
-
-    prompt = f"""
-{SYSTEM_PROMPT}
-
-{web_context}
-
-USER REQUEST:
-
-{user_message}
-
-Create the best possible travel plan.
-"""
-
-
-    # ========================================================
-    # GEMINI
-    # ========================================================
-
-    return generate_with_fallback(
-        prompt
-    )
+    }
