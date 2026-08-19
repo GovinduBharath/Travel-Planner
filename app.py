@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from agent import run_travel_agent
@@ -16,10 +15,6 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# ============================================================
-# CORS
-# ============================================================
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,21 +24,15 @@ app.add_middleware(
 )
 
 
-# ============================================================
-# REQUEST MODEL
-# ============================================================
-
 class TravelRequest(BaseModel):
 
     origin: str = Field(
         ...,
-        min_length=2,
         description="Starting city"
     )
 
     destination: str = Field(
         ...,
-        min_length=2,
         description="Destination"
     )
 
@@ -63,36 +52,31 @@ class TravelRequest(BaseModel):
     )
 
 
-# ============================================================
-# HOME
-# ============================================================
-
 @app.get("/")
 def home():
 
-    return FileResponse(
-        "static/index.html"
-    )
+    return {
+        "message": "AI Travel Planner Agent is running",
+        "framework": "LangChain + LangGraph",
+        "llm": "Google Gemini",
+        "docs": "/docs",
+        "health": "/health"
+    }
 
-
-# ============================================================
-# HEALTH CHECK
-# ============================================================
 
 @app.get("/health")
 def health():
 
     return {
         "status": "success",
-        "message": "AI Travel Planner is running",
+        "message": "Agent is running",
         "framework": "LangChain + LangGraph",
-        "llm": "Google Gemini"
+        "model": os.getenv(
+            "GEMINI_MODEL",
+            "gemini-3.6-flash"
+        )
     }
 
-
-# ============================================================
-# TRAVEL PLAN
-# ============================================================
 
 @app.post("/api/plan")
 def create_travel_plan(
@@ -115,10 +99,8 @@ def create_travel_plan(
 
     try:
 
-        user_input = request.model_dump()
-
         result = run_travel_agent(
-            user_input
+            request.model_dump()
         )
 
         return result
@@ -131,10 +113,6 @@ def create_travel_plan(
         )
 
 
-# ============================================================
-# LOCAL DEVELOPMENT
-# ============================================================
-
 if __name__ == "__main__":
 
     import uvicorn
@@ -143,7 +121,9 @@ if __name__ == "__main__":
         "app:app",
         host="0.0.0.0",
         port=int(
-            os.getenv("PORT", 8000)
-        ),
-        reload=True
+            os.getenv(
+                "PORT",
+                8000
+            )
+        )
     )
