@@ -11,252 +11,282 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>AI Travel Planner</title>
+    <title>
+        AI Travel Planner
+    </title>
 
 
     <style>
 
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
         }
 
 
         body {
 
-            min-height: 100vh;
+            margin: 0;
+
+            font-family:
+                Arial,
+                sans-serif;
 
             background:
                 linear-gradient(
                     135deg,
-                    #dbeafe,
-                    #f0fdf4
+                    #eef2ff,
+                    #f8fafc
                 );
 
-            display: flex;
-
-            justify-content: center;
-
-            align-items: center;
-
-            padding: 20px;
+            color: #1f2937;
         }
 
 
         .container {
 
-            width: 100%;
+            max-width: 900px;
 
-            max-width: 950px;
+            margin:
+                40px auto;
 
-            height: 90vh;
+            padding:
+                20px;
+        }
+
+
+        .card {
 
             background: white;
 
-            border-radius: 20px;
+            border-radius:
+                18px;
 
-            overflow: hidden;
-
-            display: flex;
-
-            flex-direction: column;
+            padding:
+                30px;
 
             box-shadow:
-                0 10px 40px
-                rgba(0, 0, 0, 0.15);
+                0 10px 35px
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.10
+                );
         }
 
 
-        /* HEADER */
-
-        .header {
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #2563eb,
-                    #0891b2
-                );
-
-            color: white;
-
-            padding: 25px;
+        h1 {
 
             text-align: center;
-        }
-
-
-        .header h1 {
-
-            font-size: 30px;
 
             margin-bottom: 8px;
         }
 
 
-        .header p {
+        .subtitle {
+
+            text-align: center;
+
+            color: #6b7280;
+
+            margin-bottom: 30px;
+        }
+
+
+        .architecture {
+
+            text-align: center;
+
+            background:
+                #eef2ff;
+
+            padding:
+                12px;
+
+            border-radius:
+                10px;
+
+            margin-bottom:
+                25px;
+
+            font-size:
+                14px;
+        }
+
+
+        .grid {
+
+            display: grid;
+
+            grid-template-columns:
+                1fr 1fr;
+
+            gap: 18px;
+        }
+
+
+        .full {
+
+            grid-column:
+                1 / -1;
+        }
+
+
+        label {
+
+            display: block;
+
+            font-weight: bold;
+
+            margin-bottom: 6px;
+        }
+
+
+        input {
+
+            width: 100%;
+
+            padding: 13px;
+
+            border:
+                1px solid #d1d5db;
+
+            border-radius: 9px;
 
             font-size: 15px;
-
-            opacity: 0.9;
         }
 
 
-        .status {
-
-            margin-top: 10px;
-
-            font-size: 13px;
-        }
-
-
-        /* CHAT */
-
-        #chat {
-
-            flex: 1;
-
-            overflow-y: auto;
-
-            padding: 25px;
-
-            background: #f8fafc;
-        }
-
-
-        .message {
-
-            max-width: 80%;
-
-            padding: 14px 17px;
-
-            margin-bottom: 15px;
-
-            border-radius: 15px;
-
-            line-height: 1.6;
-
-            white-space: pre-wrap;
-        }
-
-
-        .user {
-
-            margin-left: auto;
-
-            background: #2563eb;
-
-            color: white;
-
-            border-bottom-right-radius: 4px;
-        }
-
-
-        .bot {
-
-            margin-right: auto;
-
-            background: white;
-
-            color: #1f2937;
-
-            border: 1px solid #e5e7eb;
-
-            border-bottom-left-radius: 4px;
-        }
-
-
-        /* INPUT */
-
-        .input-area {
-
-            display: flex;
-
-            gap: 10px;
-
-            padding: 18px;
-
-            border-top: 1px solid #e5e7eb;
-
-            background: white;
-        }
-
-
-        #message {
-
-            flex: 1;
-
-            padding: 14px;
-
-            border: 1px solid #d1d5db;
-
-            border-radius: 10px;
-
-            font-size: 15px;
+        input:focus {
 
             outline: none;
-        }
 
-
-        #message:focus {
-
-            border-color: #2563eb;
+            border-color:
+                #4f46e5;
         }
 
 
         button {
 
+            width: 100%;
+
+            margin-top: 25px;
+
+            padding: 14px;
+
             border: none;
 
-            padding: 0 24px;
+            border-radius: 9px;
 
-            background: #2563eb;
+            background:
+                #4f46e5;
 
             color: white;
 
-            border-radius: 10px;
+            font-size: 16px;
+
+            font-weight: bold;
 
             cursor: pointer;
-
-            font-size: 15px;
         }
 
 
         button:hover {
 
-            background: #1d4ed8;
+            background:
+                #4338ca;
         }
 
 
         button:disabled {
 
-            background: #9ca3af;
+            opacity: 0.6;
 
             cursor: not-allowed;
         }
 
 
-        @media(max-width:600px) {
+        #status {
 
-            .container {
+            margin-top: 20px;
 
-                height: 95vh;
+            text-align: center;
+
+            color: #6b7280;
+        }
+
+
+        .tools {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 8px;
+
+            margin-top: 20px;
+        }
+
+
+        .tool {
+
+            background:
+                #eef2ff;
+
+            color:
+                #3730a3;
+
+            padding:
+                8px 12px;
+
+            border-radius:
+                20px;
+
+            font-size:
+                13px;
+        }
+
+
+        pre {
+
+            margin-top: 20px;
+
+            background:
+                #111827;
+
+            color:
+                #f9fafb;
+
+            padding:
+                20px;
+
+            border-radius:
+                12px;
+
+            white-space:
+                pre-wrap;
+
+            line-height:
+                1.6;
+
+            overflow-x:
+                auto;
+        }
+
+
+        @media(max-width:650px) {
+
+            .grid {
+
+                grid-template-columns:
+                    1fr;
             }
 
+            .full {
 
-            .message {
-
-                max-width: 90%;
+                grid-column:
+                    auto;
             }
-
-
-            .header h1 {
-
-                font-size: 24px;
-            }
-
         }
 
     </style>
@@ -269,81 +299,168 @@
 
 <div class="container">
 
+    <div class="card">
 
-    <!-- HEADER -->
-
-    <div class="header">
 
         <h1>
             ✈️ AI Travel Planner
         </h1>
 
-        <p>
-            Your intelligent personal travel assistant
+
+        <p class="subtitle">
+
+            Plan your trip using
+            LangChain + LangGraph + Gemini
+
         </p>
 
-        <div
-            class="status"
-            id="status"
-        >
-            Checking connections...
-        </div>
 
-    </div>
+        <div class="architecture">
 
-
-    <!-- CHAT -->
-
-    <div id="chat">
-
-        <div class="message bot">
-
-            👋 Hello!
-
-            I am your AI Travel Planner.
-
-            Tell me where you want to travel and I can create a personalized plan.
-
-            I can help with:
-
-            🌍 Destinations
-            🗓️ Day-by-day itineraries
-            🏨 Hotels
-            🍽️ Restaurants
-            📍 Tourist attractions
-            🚗 Transportation
-            💰 Budget planning
-            🌤️ Best time to visit
-
-            Example:
-
-            Plan a 5-day trip to Paris for $1500.
+            🤖 Gemini →
+            🧠 LangGraph →
+            🔧 Travel Tools →
+            📋 Final Itinerary
 
         </div>
 
+
+        <!-- ==================================================
+             FORM
+        =================================================== -->
+
+        <form id="travelForm">
+
+
+            <div class="grid">
+
+
+                <!-- STARTING CITY -->
+
+                <div>
+
+                    <label>
+                        Starting City
+                    </label>
+
+                    <input
+                        id="origin"
+                        placeholder="Enter your city"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- DESTINATION -->
+
+                <div>
+
+                    <label>
+                        Destination
+                    </label>
+
+                    <input
+                        id="destination"
+                        placeholder="Enter destination"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- BUDGET -->
+
+                <div>
+
+                    <label>
+                        Budget (USD)
+                    </label>
+
+                    <input
+                        id="budget"
+                        placeholder="$500"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- DURATION -->
+
+                <div>
+
+                    <label>
+                        Duration
+                    </label>
+
+                    <input
+                        id="duration"
+                        placeholder="4 days"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- INTERESTS -->
+
+                <div class="full">
+
+                    <label>
+                        Interests
+                    </label>
+
+                    <input
+                        id="interests"
+                        placeholder="e.g. beaches, food, sightseeing"
+                    >
+
+                </div>
+
+
+            </div>
+
+
+            <button
+                id="submitBtn"
+                type="submit"
+            >
+
+                🤖 Generate Travel Plan
+
+            </button>
+
+
+        </form>
+
+
+        <!-- ==================================================
+             STATUS
+        =================================================== -->
+
+        <div id="status"></div>
+
+
+        <!-- ==================================================
+             TOOLS USED
+        =================================================== -->
+
+        <div id="toolBox"></div>
+
+
+        <!-- ==================================================
+             RESULT
+        =================================================== -->
+
+        <pre id="result">
+
+Your AI-generated travel plan will appear here...
+
+        </pre>
+
+
     </div>
-
-
-    <!-- INPUT -->
-
-    <div class="input-area">
-
-        <input
-            type="text"
-            id="message"
-            placeholder="Where do you want to travel?"
-            autocomplete="off"
-        >
-
-        <button
-            id="sendButton"
-            onclick="sendMessage()"
-        >
-            Send
-        </button>
-
-    </div>
-
 
 </div>
 
@@ -352,265 +469,231 @@
 
 
 // ============================================================
-// HEALTH CHECK
+// ELEMENTS
 // ============================================================
 
-async function checkHealth() {
-
-    try {
-
-        const response =
-            await fetch("/health");
-
-
-        const data =
-            await response.json();
-
-
-        const status =
-            document.getElementById(
-                "status"
-            );
-
-
-        if (
-            data.google_key &&
-            data.tavily_key
-        ) {
-
-            status.innerText =
-                "● Gemini Connected | Tavily Connected";
-
-            status.style.color =
-                "#bbf7d0";
-
-        }
-
-        else if (
-            data.google_key &&
-            !data.tavily_key
-        ) {
-
-            status.innerText =
-                "● Gemini Connected | Tavily Missing";
-
-            status.style.color =
-                "#fde68a";
-
-        }
-
-        else if (
-            !data.google_key
-        ) {
-
-            status.innerText =
-                "● Google API Key Missing";
-
-            status.style.color =
-                "#fecaca";
-
-        }
-
-    }
-
-    catch (error) {
-
-        document.getElementById(
-            "status"
-        ).innerText =
-            "● Server Offline";
-
-    }
-
-}
-
-
-// ============================================================
-// SEND MESSAGE
-// ============================================================
-
-async function sendMessage() {
-
-
-    const input =
-        document.getElementById(
-            "message"
-        );
-
-
-    const button =
-        document.getElementById(
-            "sendButton"
-        );
-
-
-    const message =
-        input.value.trim();
-
-
-    if (!message) {
-
-        return;
-
-    }
-
-
-    // Add user message
-
-    addMessage(
-        message,
-        "user"
+const form =
+    document.getElementById(
+        "travelForm"
     );
 
 
-    input.value = "";
-
-
-    button.disabled = true;
-
-    button.innerText =
-        "Planning...";
-
-
-    try {
-
-
-        const response =
-            await fetch(
-                "/chat",
-                {
-
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body: JSON.stringify({
-
-                        message:
-                            message
-
-                    })
-
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        if (data.success) {
-
-            addMessage(
-                data.response,
-                "bot"
-            );
-
-        }
-
-        else {
-
-            addMessage(
-                "❌ " +
-                data.response,
-                "bot"
-            );
-
-        }
-
-
-    }
-
-    catch (error) {
-
-        addMessage(
-            "❌ Unable to connect to the server.",
-            "bot"
-        );
-
-    }
-
-
-    button.disabled = false;
-
-    button.innerText =
-        "Send";
-
-}
-
-
-// ============================================================
-// ADD MESSAGE
-// ============================================================
-
-function addMessage(
-    text,
-    type
-) {
-
-
-    const chat =
-        document.getElementById(
-            "chat"
-        );
-
-
-    const messageDiv =
-        document.createElement(
-            "div"
-        );
-
-
-    messageDiv.className =
-        "message " + type;
-
-
-    messageDiv.innerText =
-        text;
-
-
-    chat.appendChild(
-        messageDiv
+const button =
+    document.getElementById(
+        "submitBtn"
     );
 
 
-    chat.scrollTop =
-        chat.scrollHeight;
+const statusBox =
+    document.getElementById(
+        "status"
+    );
 
-}
+
+const resultBox =
+    document.getElementById(
+        "result"
+    );
+
+
+const toolBox =
+    document.getElementById(
+        "toolBox"
+    );
 
 
 // ============================================================
-// ENTER KEY
+// FORM SUBMISSION
 // ============================================================
 
-document
-    .getElementById("message")
-    .addEventListener(
-        "keydown",
-        function(event) {
+form.addEventListener(
+    "submit",
+    async function(event) {
 
-            if (
-                event.key === "Enter"
-            ) {
+        event.preventDefault();
 
-                sendMessage();
+
+        // Disable button
+        button.disabled = true;
+
+
+        // Status
+        statusBox.textContent =
+            "🤖 LangGraph Agent is researching your trip...";
+
+
+        // Clear previous results
+        resultBox.textContent = "";
+
+        toolBox.innerHTML = "";
+
+
+        // ====================================================
+        // USER INPUT
+        // ====================================================
+
+        const data = {
+
+            origin:
+                document
+                .getElementById("origin")
+                .value,
+
+            destination:
+                document
+                .getElementById("destination")
+                .value,
+
+            budget:
+                document
+                .getElementById("budget")
+                .value,
+
+            duration:
+                document
+                .getElementById("duration")
+                .value,
+
+            interests:
+                document
+                .getElementById("interests")
+                .value
+
+        };
+
+
+        try {
+
+
+            // =================================================
+            // API REQUEST
+            // =================================================
+
+            const response =
+                await fetch(
+                    "/api/plan",
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body:
+                            JSON.stringify(data)
+
+                    }
+                );
+
+
+            const result =
+                await response.json();
+
+
+            // =================================================
+            // ERROR
+            // =================================================
+
+            if (!response.ok) {
+
+                throw new Error(
+                    result.detail ||
+                    "Something went wrong"
+                );
 
             }
 
+
+            // =================================================
+            // SUCCESS
+            // =================================================
+
+            statusBox.textContent =
+                "✅ Travel plan generated successfully!";
+
+
+            // =================================================
+            // TOOLS USED
+            // =================================================
+
+            const tools = [
+
+                ...new Set(
+
+                    (
+                        result.tools_used ||
+                        []
+                    )
+                    .map(
+                        item =>
+                            item.tool
+                    )
+
+                )
+
+            ];
+
+
+            if (tools.length > 0) {
+
+                toolBox.innerHTML =
+
+                    '<div class="tools">' +
+
+                    tools
+                    .map(
+
+                        tool =>
+
+                            `<span class="tool">
+                                🔧 ${tool}
+                            </span>`
+
+                    )
+                    .join("") +
+
+                    '</div>';
+
+            }
+
+
+            // =================================================
+            // FINAL PLAN
+            // =================================================
+
+            resultBox.textContent =
+                result.plan ||
+                "No travel plan generated.";
+
+
         }
-    );
+
+        catch(error) {
 
 
-// ============================================================
-// START HEALTH CHECK
-// ============================================================
+            statusBox.textContent =
+                "❌ Error: " +
+                error.message;
 
-checkHealth();
 
+            resultBox.textContent =
+                "Please check your API keys, Render environment variables, and deployment logs.";
+
+        }
+
+        finally {
+
+            button.disabled = false;
+
+        }
+
+    }
+
+);
 
 </script>
 
