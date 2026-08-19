@@ -1,17 +1,13 @@
 import os
 import requests
 
-from langchain_core.tools import tool
 from tavily import TavilyClient
 
-
-# ============================================================
-# TAVILY
-# ============================================================
 
 TAVILY_API_KEY = os.getenv(
     "TAVILY_API_KEY"
 )
+
 
 tavily = None
 
@@ -30,10 +26,6 @@ def check_tavily():
             "TAVILY_API_KEY is missing."
         )
 
-
-# ============================================================
-# CLEAN SEARCH RESULTS
-# ============================================================
 
 def clean_results(
     response,
@@ -59,42 +51,37 @@ def clean_results(
                 item.get(
                     "content",
                     ""
-                )[:1200]
+                )[:1500]
+
         })
 
     return results
 
 
-# ============================================================
-# FLIGHT SEARCH
-# ============================================================
-
-@tool
 def search_flights(
-    origin: str,
-    destination: str,
-    duration: str,
-    budget: str
-) -> dict:
-
-    """
-    Search the web for flight options from
-    the user's starting city to the destination.
-    """
+    origin,
+    destination,
+    duration,
+    budget
+):
 
     check_tavily()
 
     query = f"""
-    Find flight options from {origin} to {destination}
-    for a {duration} trip.
+Find flight options from {origin}
+to {destination}.
 
-    User budget: {budget} USD.
+Trip duration:
+{duration}
 
-    Find airlines, approximate prices,
-    flight duration and direct flight options.
+Budget:
+{budget} USD
 
-    Use USD prices where possible.
-    """
+Find airlines, approximate prices,
+flight duration and direct flights.
+
+Use USD prices where possible.
+"""
 
     response = tavily.search(
 
@@ -109,49 +96,41 @@ def search_flights(
 
     return {
 
-        "tool": "Flight Search",
-
-        "note":
-            "Prices and availability are approximate.",
+        "tool":
+            "Flight Search",
 
         "answer":
             response.get("answer"),
 
         "results":
             clean_results(response)
+
     }
 
 
-# ============================================================
-# HOTEL SEARCH
-# ============================================================
-
-@tool
 def search_hotels(
-    destination: str,
-    duration: str,
-    budget: str
-) -> dict:
-
-    """
-    Search the web for hotels and accommodation
-    at the destination.
-    """
+    destination,
+    duration,
+    budget
+):
 
     check_tavily()
 
     query = f"""
-    Find hotels in {destination}
-    for {duration}.
+Find hotels and accommodation
+in {destination}.
 
-    User travel budget:
-    {budget} USD.
+Duration:
+{duration}
 
-    Find budget-friendly and mid-range hotels,
-    approximate prices, ratings, location and reviews.
+Budget:
+{budget} USD
 
-    Use USD prices where possible.
-    """
+Find budget and mid-range hotels,
+prices, ratings, location and reviews.
+
+Use USD prices where possible.
+"""
 
     response = tavily.search(
 
@@ -166,47 +145,40 @@ def search_hotels(
 
     return {
 
-        "tool": "Hotel Search",
-
-        "note":
-            "Hotel prices and availability may change.",
+        "tool":
+            "Hotel Search",
 
         "answer":
             response.get("answer"),
 
         "results":
             clean_results(response)
+
     }
 
 
-# ============================================================
-# PLACES SEARCH
-# ============================================================
-
-@tool
 def search_places(
-    destination: str,
-    duration: str,
-    interests: str
-) -> dict:
-
-    """
-    Search for tourist attractions,
-    restaurants, activities and experiences.
-    """
+    destination,
+    duration,
+    interests
+):
 
     check_tavily()
 
     query = f"""
-    Find the best places to visit in {destination}
-    for a {duration} trip.
+Find the best places to visit in
+{destination}.
 
-    User interests:
-    {interests}
+Duration:
+{duration}
 
-    Find tourist attractions, restaurants,
-    activities, local experiences and popular places.
-    """
+Interests:
+{interests}
+
+Find tourist attractions,
+restaurants, activities,
+local experiences and popular places.
+"""
 
     response = tavily.search(
 
@@ -221,7 +193,8 @@ def search_places(
 
     return {
 
-        "tool": "Places Search",
+        "tool":
+            "Places Search",
 
         "answer":
             response.get("answer"),
@@ -231,26 +204,13 @@ def search_places(
                 response,
                 7
             )
+
     }
 
 
-# ============================================================
-# WEATHER
-# ============================================================
-
-@tool
 def get_weather(
-    destination: str
-) -> dict:
-
-    """
-    Get current and forecast weather
-    for the destination.
-    """
-
-    # --------------------------------------------------------
-    # GEOCODING
-    # --------------------------------------------------------
+    destination
+):
 
     geocoding_url = (
         "https://geocoding-api.open-meteo.com/v1/search"
@@ -273,6 +233,7 @@ def get_weather(
 
             "format":
                 "json"
+
         },
 
         timeout=20
@@ -290,19 +251,19 @@ def get_weather(
     if not locations:
 
         raise RuntimeError(
-            f"Location not found: {destination}"
+            f"Could not find destination: {destination}"
         )
 
     location = locations[0]
 
-    latitude = location["latitude"]
+    latitude = location[
+        "latitude"
+    ]
 
-    longitude = location["longitude"]
+    longitude = location[
+        "longitude"
+    ]
 
-
-    # --------------------------------------------------------
-    # WEATHER
-    # --------------------------------------------------------
 
     weather_url = (
         "https://api.open-meteo.com/v1/forecast"
@@ -337,6 +298,7 @@ def get_weather(
 
             "timezone":
                 "auto"
+
         },
 
         timeout=20
@@ -344,7 +306,9 @@ def get_weather(
 
     weather_response.raise_for_status()
 
-    weather_data = weather_response.json()
+    weather_data = (
+        weather_response.json()
+    )
 
     return {
 
@@ -357,13 +321,8 @@ def get_weather(
                 location.get("name"),
 
             "country":
-                location.get("country"),
+                location.get("country")
 
-            "latitude":
-                latitude,
-
-            "longitude":
-                longitude
         },
 
         "current":
@@ -377,18 +336,22 @@ def get_weather(
                 "daily",
                 {}
             )
+
     }
 
 
-# ============================================================
-# TOOL LIST
-# ============================================================
+TOOL_FUNCTIONS = {
 
-TOOLS = [
+    "search_flights":
+        search_flights,
 
-    search_flights,
-    search_hotels,
-    search_places,
-    get_weather
+    "search_hotels":
+        search_hotels,
 
-]
+    "search_places":
+        search_places,
+
+    "get_weather":
+        get_weather
+
+}
