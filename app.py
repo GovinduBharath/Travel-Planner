@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from agent import run_travel_agent
@@ -11,8 +12,8 @@ load_dotenv()
 
 app = FastAPI(
     title="AI Travel Planner Agent",
-    description="Travel Planner using LangChain, LangGraph and Gemini",
-    version="2.0.0"
+    description="AI Travel Planner using Gemini and external tools",
+    version="1.0.0"
 )
 
 app.add_middleware(
@@ -28,11 +29,13 @@ class TravelRequest(BaseModel):
 
     origin: str = Field(
         ...,
+        min_length=2,
         description="Starting city"
     )
 
     destination: str = Field(
         ...,
+        min_length=2,
         description="Destination"
     )
 
@@ -55,13 +58,9 @@ class TravelRequest(BaseModel):
 @app.get("/")
 def home():
 
-    return {
-        "message": "AI Travel Planner Agent is running",
-        "framework": "LangChain + LangGraph",
-        "llm": "Google Gemini",
-        "docs": "/docs",
-        "health": "/health"
-    }
+    return FileResponse(
+        "static/index.html"
+    )
 
 
 @app.get("/health")
@@ -69,12 +68,7 @@ def health():
 
     return {
         "status": "success",
-        "message": "Agent is running",
-        "framework": "LangChain + LangGraph",
-        "model": os.getenv(
-            "GEMINI_MODEL",
-            "gemini-3.6-flash"
-        )
+        "message": "AI Travel Planner Agent is running"
     }
 
 
@@ -121,9 +115,6 @@ if __name__ == "__main__":
         "app:app",
         host="0.0.0.0",
         port=int(
-            os.getenv(
-                "PORT",
-                8000
-            )
+            os.getenv("PORT", 8000)
         )
     )
